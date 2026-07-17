@@ -26,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final email = AuthService().currentUser?.email ?? '';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
@@ -39,7 +41,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _screens[_selectedIndex],
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            color: const Color(0xFF8B1E2B).withOpacity(0.08),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: Text(
+              'Ingelogd als $email',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ),
+          Expanded(child: _screens[_selectedIndex]),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() => _selectedIndex = index),
