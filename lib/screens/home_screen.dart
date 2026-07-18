@@ -6,6 +6,7 @@ import 'news_feed_screen.dart';
 import 'wall_of_fame_screen.dart';
 import 'social_feed_screen.dart';
 import 'photos_screen.dart';
+import 'wod_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,11 +18,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  static const _titles = ['Nieuws', 'Wall of fame', 'Sociaal', 'Foto\'s'];
+  static const _titles = ['Nieuws', 'Wall of fame', 'Benchmark WOD\'s', 'Sociaal', 'Foto\'s'];
 
   static const _screens = [
     NewsFeedScreen(),
     WallOfFameScreen(),
+    WodListScreen(),
     SocialFeedScreen(),
     PhotosScreen(),
   ];
@@ -66,8 +68,9 @@ class _HomeScreenState extends State<HomeScreen> {
         onDestinationSelected: (index) => setState(() => _selectedIndex = index),
         backgroundColor: const Color(0xFF0F1C3F),
         indicatorColor: const Color(0xFF8B1E2B),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(color: Colors.white),
+          const TextStyle(color: Colors.white, fontSize: 10),
         ),
         destinations: const [
           NavigationDestination(
@@ -79,6 +82,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.emoji_events_outlined, color: Colors.white70),
             selectedIcon: Icon(Icons.emoji_events, color: Colors.white),
             label: 'Wall of fame',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fitness_center_outlined, color: Colors.white70),
+            selectedIcon: Icon(Icons.fitness_center, color: Colors.white),
+            label: 'WOD\'s',
           ),
           NavigationDestination(
             icon: Icon(Icons.forum_outlined, color: Colors.white70),
