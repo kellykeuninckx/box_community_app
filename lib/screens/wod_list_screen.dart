@@ -22,6 +22,11 @@ class _WodListScreenState extends State<WodListScreen> {
     final heroes = filtered.where((w) => w.category == 'Hero WODs').toList();
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Benchmark WOD\'s'),
+        backgroundColor: const Color(0xFF0F1C3F),
+        foregroundColor: Colors.white,
+      ),
       backgroundColor: Colors.transparent,
       body: Column(
         children: [

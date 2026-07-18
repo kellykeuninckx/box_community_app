@@ -28,6 +28,26 @@ class UserProfileService {
     }, SetOptions(merge: true));
   }
 
+  /// Eenmalig te vragen, alléén wanneer iemand voor het eerst een lift-PR invult.
+  Future<void> setWeightClassInfo({
+    required String gender,
+    required double bodyweightKg,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    await _collection.doc(uid).set({
+      'gender': gender,
+      'bodyweightKg': bodyweightKg,
+    }, SetOptions(merge: true));
+  }
+
+  Future<UserProfile?> fetchOnce(String uid) async {
+    final doc = await _collection.doc(uid).get();
+    if (!doc.exists) return null;
+    return UserProfile.fromFirestore(doc);
+  }
+
   /// Voor het tonen van iemand ánders nickname (bijvoorbeeld bij een Wall of Fame-post).
   Future<String> nicknameFor(String uid) async {
     final doc = await _collection.doc(uid).get();

@@ -22,11 +22,17 @@ class GymCommunityApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF8B1E2B),
+          brightness: Brightness.dark,
           primary: const Color(0xFF8B1E2B),
-          secondary: const Color(0xFF0F1C3F),
+          secondary: const Color(0xFFF0EDC8),
+          surface: const Color(0xFF16264B),
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F7),
+        scaffoldBackgroundColor: const Color(0xFF0F1C3F),
+        cardTheme: CardThemeData(
+          color: const Color(0xFF16264B),
+          elevation: 0,
+        ),
       ),
       home: const AuthGate(),
     );

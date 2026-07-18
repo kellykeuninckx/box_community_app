@@ -11,6 +11,11 @@ class WallOfFameScreen extends StatelessWidget {
     final service = WallOfFameService();
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Wall of fame'),
+        backgroundColor: const Color(0xFF0F1C3F),
+        foregroundColor: Colors.white,
+      ),
       backgroundColor: Colors.transparent,
       body: StreamBuilder<List<WallOfFamePost>>(
         stream: service.posts,

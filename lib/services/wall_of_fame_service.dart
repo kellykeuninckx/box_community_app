@@ -47,4 +47,18 @@ class WallOfFameService {
       await docRef.update({'reactionsByUser.$uid': emoji});
     }
   }
+
+  /// Eenmalige telling (geen live stream nodig) — voor op het profielscherm.
+  Future<int> countReactionsGiven(String uid) async {
+    final snapshot = await _collection.get();
+    var count = 0;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final reactionsByUser = Map<String, dynamic>.from(data['reactionsByUser'] ?? {});
+      if (reactionsByUser.containsKey(uid)) count++;
+    }
+
+    return count;
+  }
 }

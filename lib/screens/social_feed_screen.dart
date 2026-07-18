@@ -6,11 +6,18 @@ class SocialFeedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Nog geen berichten.\n(Hier komt straks de lijst.)',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.black54),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Sociaal'),
+        backgroundColor: const Color(0xFF0F1C3F),
+        foregroundColor: Colors.white,
+      ),
+      body: const Center(
+        child: Text(
+          'Nog geen berichten.\n(Hier komt straks de lijst.)',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54),
+        ),
       ),
     );
   }
