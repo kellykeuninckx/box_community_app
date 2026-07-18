@@ -4,6 +4,11 @@ import '../models/weight_class.dart';
 import '../services/lift_pr_service.dart';
 import '../services/user_profile_service.dart';
 
+const _cream = Color(0xFFF0EDC8);
+const _red = Color(0xFF8B1E2B);
+const _navy = Color(0xFF0F1C3F);
+const _chipBg = Color(0x14F0EDC8); // cream @ ~8% opacity
+
 class LiftLeaderboardScreen extends StatefulWidget {
   const LiftLeaderboardScreen({super.key});
 
@@ -20,88 +25,89 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lift leaderboard'),
-        backgroundColor: const Color(0xFF0F1C3F),
-        foregroundColor: Colors.white,
+        backgroundColor: _navy,
+        foregroundColor: _cream,
       ),
       body: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Wrap(
-            spacing: 8,
-            children: LiftType.values.map((lift) {
-              final isSelected = lift == _selectedLift;
-              return ChoiceChip(
-                label: Text(lift.label),
-                selected: isSelected,
-                selectedColor: const Color(0xFF8B1E2B),
-                labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
-                onSelected: (_) => setState(() => _selectedLift = lift),
-              );
-            }).toList(),
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<List<LiftPr>>(
-            stream: _service.prsFor(_selectedLift.name),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (snapshot.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Fout bij laden: ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                    ),
-                  ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Wrap(
+              spacing: 8,
+              children: LiftType.values.map((lift) {
+                final isSelected = lift == _selectedLift;
+                return ChoiceChip(
+                  label: Text(lift.label),
+                  selected: isSelected,
+                  selectedColor: _red,
+                  backgroundColor: _chipBg,
+                  labelStyle: TextStyle(color: isSelected ? Colors.white : _cream),
+                  onSelected: (_) => setState(() => _selectedLift = lift),
                 );
-              }
-
-              final prs = snapshot.data ?? [];
-
-              if (prs.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'Nog geen PR\'s ingevuld.\nWees de eerste!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                );
-              }
-
-              final women = prs.where((p) => p.gender == 'V').toList();
-              final men = prs.where((p) => p.gender == 'M').toList();
-
-              return ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                children: [
-                  if (women.isNotEmpty) ..._genderSection('Vrouwen', women),
-                  if (men.isNotEmpty) ..._genderSection('Mannen', men),
-                ],
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: ElevatedButton.icon(
-            onPressed: () => _showSubmitSheet(context),
-            icon: const Icon(Icons.add),
-            label: const Text('PR invullen'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B1E2B),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              minimumSize: const Size.fromHeight(44),
+              }).toList(),
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: StreamBuilder<List<LiftPr>>(
+              stream: _service.prsFor(_selectedLift.name),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Fout bij laden: ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                      ),
+                    ),
+                  );
+                }
+
+                final prs = snapshot.data ?? [];
+
+                if (prs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Nog geen PR\'s ingevuld.\nWees de eerste!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: _cream.withOpacity(0.6)),
+                    ),
+                  );
+                }
+
+                final women = prs.where((p) => p.gender == 'V').toList();
+                final men = prs.where((p) => p.gender == 'M').toList();
+
+                return ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  children: [
+                    if (women.isNotEmpty) ..._genderSection('Vrouwen', women),
+                    if (men.isNotEmpty) ..._genderSection('Mannen', men),
+                  ],
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: ElevatedButton.icon(
+              onPressed: () => _showSubmitSheet(context),
+              icon: const Icon(Icons.add),
+              label: const Text('PR invullen'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                minimumSize: const Size.fromHeight(44),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -118,7 +124,7 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
           title,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF0F1C3F)),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _cream),
         ),
       ),
     ];
@@ -129,7 +135,7 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Text(
             entry.key,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF8B1E2B)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _red),
           ),
         ),
       );
@@ -141,10 +147,10 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
             margin: const EdgeInsets.only(bottom: 6),
             child: ListTile(
               dense: true,
-              title: Text(pr.nickname),
+              title: Text(pr.nickname, style: const TextStyle(color: _cream)),
               trailing: Text(
                 '${pr.weightKg.toStringAsFixed(1)} kg',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontWeight: FontWeight.w600, color: _cream),
               ),
             ),
           )));
@@ -157,6 +163,7 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: const Color(0xFF16264B),
       builder: (_) => _SubmitPrSheet(service: _service, initialLift: _selectedLift),
     );
   }
@@ -253,7 +260,7 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Nieuwe PR invullen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const Text('Nieuwe PR invullen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream)),
           const SizedBox(height: 16),
 
           Wrap(
@@ -263,8 +270,9 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
               return ChoiceChip(
                 label: Text(lift.label),
                 selected: isSelected,
-                selectedColor: const Color(0xFF8B1E2B),
-                labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
+                selectedColor: _red,
+                backgroundColor: _chipBg,
+                labelStyle: TextStyle(color: isSelected ? Colors.white : _cream),
                 onSelected: (_) => setState(() => _selectedLift = lift),
               );
             }).toList(),
@@ -274,17 +282,19 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
           TextField(
             controller: _weightController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: const TextStyle(color: _cream),
             decoration: InputDecoration(
               labelText: 'Gewicht (kg)',
+              labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
 
           if (_needsWeightClassInfo) ...[
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Voor de gewichtsklasse-indeling hebben we dit eenmalig nodig:',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.6)),
             ),
             const SizedBox(height: 8),
             Row(
@@ -293,8 +303,9 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
                   child: ChoiceChip(
                     label: const Text('Man'),
                     selected: _gender == 'M',
-                    selectedColor: const Color(0xFF8B1E2B),
-                    labelStyle: TextStyle(color: _gender == 'M' ? Colors.white : Colors.black87),
+                    selectedColor: _red,
+                    backgroundColor: _chipBg,
+                    labelStyle: TextStyle(color: _gender == 'M' ? Colors.white : _cream),
                     onSelected: (_) => setState(() => _gender = 'M'),
                   ),
                 ),
@@ -303,8 +314,9 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
                   child: ChoiceChip(
                     label: const Text('Vrouw'),
                     selected: _gender == 'V',
-                    selectedColor: const Color(0xFF8B1E2B),
-                    labelStyle: TextStyle(color: _gender == 'V' ? Colors.white : Colors.black87),
+                    selectedColor: _red,
+                    backgroundColor: _chipBg,
+                    labelStyle: TextStyle(color: _gender == 'V' ? Colors.white : _cream),
                     onSelected: (_) => setState(() => _gender = 'V'),
                   ),
                 ),
@@ -314,8 +326,10 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
             TextField(
               controller: _bodyweightController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: _cream),
               decoration: InputDecoration(
                 labelText: 'Lichaamsgewicht (kg)',
+                labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
@@ -331,7 +345,7 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
           ElevatedButton(
             onPressed: _isSubmitting ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B1E2B),
+              backgroundColor: _red,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),

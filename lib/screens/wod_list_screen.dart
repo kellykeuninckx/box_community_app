@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../models/wod.dart';
 import 'wod_detail_screen.dart';
 
+const _cream = Color(0xFFF0EDC8);
+const _red = Color(0xFF8B1E2B);
+const _navy = Color(0xFF0F1C3F);
+
 class WodListScreen extends StatefulWidget {
   const WodListScreen({super.key});
 
@@ -23,9 +27,9 @@ class _WodListScreenState extends State<WodListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Benchmark WOD\'s'),
-        backgroundColor: const Color(0xFF0F1C3F),
-        foregroundColor: Colors.white,
+        title: const Text('Benchmark WODs'),
+        backgroundColor: _navy,
+        foregroundColor: _cream,
       ),
       backgroundColor: Colors.transparent,
       body: Column(
@@ -33,11 +37,13 @@ class _WodListScreenState extends State<WodListScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
+              style: const TextStyle(color: _cream),
               decoration: InputDecoration(
                 hintText: 'Zoek een WOD...',
-                prefixIcon: const Icon(Icons.search),
+                hintStyle: TextStyle(color: _cream.withOpacity(0.4)),
+                prefixIcon: Icon(Icons.search, color: _cream.withOpacity(0.6)),
                 filled: true,
-                fillColor: Colors.black.withOpacity(0.04),
+                fillColor: Colors.white.withOpacity(0.06),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -53,9 +59,11 @@ class _WodListScreenState extends State<WodListScreen> {
                 if (girls.isNotEmpty) ..._section('Girls', girls, context),
                 if (heroes.isNotEmpty) ..._section('Hero WODs', heroes, context),
                 if (filtered.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40),
-                    child: Center(child: Text('Geen WOD gevonden.')),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 40),
+                    child: Center(
+                      child: Text('Geen WOD gevonden.', style: TextStyle(color: _cream.withOpacity(0.6))),
+                    ),
                   ),
               ],
             ),
@@ -71,23 +79,20 @@ class _WodListScreenState extends State<WodListScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
           title,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF8B1E2B),
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _red),
         ),
       ),
       ...wods.map((wod) => Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
-              title: Text(wod.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Text(wod.name, style: const TextStyle(fontWeight: FontWeight.w600, color: _cream)),
               subtitle: Text(
-                wod.description,
+                wod.lines.first,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: _cream.withOpacity(0.55)),
               ),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: Icon(Icons.chevron_right, color: _cream.withOpacity(0.5)),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => WodDetailScreen(wod: wod)),
               ),

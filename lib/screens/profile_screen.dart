@@ -5,6 +5,10 @@ import '../services/user_profile_service.dart';
 import '../services/wall_of_fame_service.dart';
 import '../models/user_profile.dart';
 
+const _cream = Color(0xFFF0EDC8);
+const _red = Color(0xFF8B1E2B);
+const _navy = Color(0xFF0F1C3F);
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -57,6 +61,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  InputDecoration _fieldDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final email = FirebaseAuth.instance.currentUser?.email ?? '';
@@ -65,8 +77,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profiel'),
-        backgroundColor: const Color(0xFF0F1C3F),
-        foregroundColor: Colors.white,
+        backgroundColor: _navy,
+        foregroundColor: _cream,
       ),
       body: StreamBuilder<UserProfile?>(
         stream: _profileService.currentUserProfile,
@@ -83,10 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
-                'Naam',
-                style: TextStyle(fontSize: 12, color: Colors.black45),
-              ),
+              Text('Naam', style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5))),
               const SizedBox(height: 4),
               if (_isEditingNickname)
                 Row(
@@ -95,9 +104,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: TextField(
                         controller: _nicknameController,
                         maxLength: 24,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
+                        style: const TextStyle(color: _cream),
+                        decoration: _fieldDecoration('Naam'),
                       ),
                     ),
                     IconButton(
@@ -105,9 +113,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: _cream),
                             )
-                          : const Icon(Icons.check),
+                          : const Icon(Icons.check, color: _cream),
                       onPressed: _isSaving ? null : _saveNickname,
                     ),
                   ],
@@ -118,11 +126,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: Text(
                         profile?.nickname ?? '',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
+                      icon: Icon(Icons.edit, size: 18, color: _cream.withOpacity(0.7)),
                       onPressed: () => setState(() => _isEditingNickname = true),
                     ),
                   ],
@@ -130,23 +138,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 20),
 
-              const Text(
-                'E-mailadres',
-                style: TextStyle(fontSize: 12, color: Colors.black45),
-              ),
+              Text('E-mailadres', style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5))),
               const SizedBox(height: 4),
-              Text(email, style: const TextStyle(fontSize: 14)),
+              Text(email, style: const TextStyle(fontSize: 14, color: _cream)),
 
               if (profile?.hasWeightClassInfo == true) ...[
                 const SizedBox(height: 20),
-                const Text(
-                  'Gewichtsklasse-gegevens',
-                  style: TextStyle(fontSize: 12, color: Colors.black45),
-                ),
+                Text('Gewichtsklasse-gegevens', style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5))),
                 const SizedBox(height: 4),
                 Text(
                   'Geslacht: ${profile!.gender == 'M' ? 'Man' : 'Vrouw'}',
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 14, color: _cream),
                 ),
                 const SizedBox(height: 6),
                 if (_isEditingBodyweight)
@@ -156,10 +158,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: TextField(
                           controller: _bodyweightController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: 'Lichaamsgewicht (kg)',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
+                          style: const TextStyle(color: _cream),
+                          decoration: _fieldDecoration('Lichaamsgewicht (kg)'),
                         ),
                       ),
                       IconButton(
@@ -167,9 +167,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: _cream),
                               )
-                            : const Icon(Icons.check),
+                            : const Icon(Icons.check, color: _cream),
                         onPressed: _isSaving ? null : () => _saveBodyweight(profile.gender!),
                       ),
                     ],
@@ -180,37 +180,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Expanded(
                         child: Text(
                           '${profile.bodyweightKg?.toStringAsFixed(1)} kg',
-                          style: const TextStyle(fontSize: 14),
+                          style: const TextStyle(fontSize: 14, color: _cream),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit, size: 18),
+                        icon: Icon(Icons.edit, size: 18, color: _cream.withOpacity(0.7)),
                         onPressed: () => setState(() => _isEditingBodyweight = true),
                       ),
                     ],
                   ),
-                const Text(
+                Text(
                   'Pas dit aan zodra je gewicht verandert — houdt je gewichtsklasse actueel.',
-                  style: TextStyle(fontSize: 11, color: Colors.black38),
+                  style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.4)),
                 ),
               ],
 
               const SizedBox(height: 20),
 
-              const Text(
-                'Reacties gegeven',
-                style: TextStyle(fontSize: 12, color: Colors.black45),
-              ),
+              Text('Reacties gegeven', style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5))),
               const SizedBox(height: 4),
               FutureBuilder<int>(
                 future: uid != null ? _wallOfFameService.countReactionsGiven(uid) : Future.value(0),
                 builder: (context, countSnapshot) {
                   if (!countSnapshot.hasData) {
-                    return const Text('...', style: TextStyle(fontSize: 14));
+                    return const Text('...', style: TextStyle(fontSize: 14, color: _cream));
                   }
                   return Text(
                     '${countSnapshot.data} keer op de Wall of Fame',
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 14, color: _cream),
                   );
                 },
               ),
@@ -222,8 +219,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: const Icon(Icons.logout),
                 label: const Text('Uitloggen'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF8B1E2B),
-                  side: const BorderSide(color: Color(0xFF8B1E2B)),
+                  foregroundColor: _red,
+                  side: const BorderSide(color: _red),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),

@@ -8,6 +8,7 @@ class WodScore {
   final int? timeInSeconds;
   final int? rounds;
   final int? extraReps;
+  final String? note;
   final DateTime createdAt;
 
   WodScore({
@@ -18,6 +19,7 @@ class WodScore {
     this.timeInSeconds,
     this.rounds,
     this.extraReps,
+    this.note,
     required this.createdAt,
   });
 
@@ -31,6 +33,7 @@ class WodScore {
       timeInSeconds: data['timeInSeconds'],
       rounds: data['rounds'],
       extraReps: data['extraReps'],
+      note: data['note'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }

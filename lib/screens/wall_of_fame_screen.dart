@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/wall_of_fame_post.dart';
 import '../services/wall_of_fame_service.dart';
 
+const _cream = Color(0xFFF0EDC8);
+const _red = Color(0xFF8B1E2B);
+const _navy = Color(0xFF0F1C3F);
+
 class WallOfFameScreen extends StatelessWidget {
   const WallOfFameScreen({super.key});
 
@@ -13,8 +17,8 @@ class WallOfFameScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Wall of fame'),
-        backgroundColor: const Color(0xFF0F1C3F),
-        foregroundColor: Colors.white,
+        backgroundColor: _navy,
+        foregroundColor: _cream,
       ),
       backgroundColor: Colors.transparent,
       body: StreamBuilder<List<WallOfFamePost>>(
@@ -25,17 +29,22 @@ class WallOfFameScreen extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Er ging iets mis: ${snapshot.error}'));
+            return Center(
+              child: Text(
+                'Er ging iets mis: ${snapshot.error}',
+                style: const TextStyle(color: _cream),
+              ),
+            );
           }
 
           final posts = snapshot.data ?? [];
 
           if (posts.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
                 'Nog geen prestaties gedeeld.\nWees de eerste!',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(color: _cream.withOpacity(0.6)),
               ),
             );
           }
@@ -50,7 +59,7 @@ class WallOfFameScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF8B1E2B),
+        backgroundColor: _red,
         onPressed: () => _showNewPostSheet(context, service),
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -61,6 +70,7 @@ class WallOfFameScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: const Color(0xFF16264B),
       builder: (_) => _NewPostSheet(service: service),
     );
   }
@@ -86,27 +96,28 @@ class _PostCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B1E2B).withOpacity(0.12),
+                    color: _red.withOpacity(0.25),
                     borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _red.withOpacity(0.6)),
                   ),
                   child: Text(
                     post.type,
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF8B1E2B),
+                      color: _cream,
                     ),
                   ),
                 ),
                 const Spacer(),
                 Text(
                   post.authorNickname,
-                  style: const TextStyle(fontSize: 11, color: Colors.black45),
+                  style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.55)),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text(post.text, style: const TextStyle(fontSize: 14)),
+            Text(post.text, style: const TextStyle(fontSize: 14, color: _cream)),
             const SizedBox(height: 10),
             Row(
               children: post.reactionCounts.entries.map((entry) {
@@ -123,17 +134,13 @@ class _PostCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isMine
-                            ? const Color(0xFF8B1E2B).withOpacity(0.15)
-                            : Colors.black.withOpacity(0.05),
+                        color: isMine ? _red.withOpacity(0.25) : Colors.white.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(20),
-                        border: isMine
-                            ? Border.all(color: const Color(0xFF8B1E2B), width: 1)
-                            : null,
+                        border: isMine ? Border.all(color: _red, width: 1) : null,
                       ),
                       child: Text(
                         '$emoji $count',
-                        style: const TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13, color: _cream),
                       ),
                     ),
                   ),
@@ -198,7 +205,7 @@ class _NewPostSheetState extends State<_NewPostSheet> {
         children: [
           const Text(
             'Nieuwe prestatie delen',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream),
           ),
           const SizedBox(height: 16),
 
@@ -209,9 +216,10 @@ class _NewPostSheetState extends State<_NewPostSheet> {
               return ChoiceChip(
                 label: Text(type),
                 selected: isSelected,
-                selectedColor: const Color(0xFF8B1E2B),
+                selectedColor: _red,
+                backgroundColor: Colors.white.withOpacity(0.08),
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black87,
+                  color: isSelected ? Colors.white : _cream,
                 ),
                 onSelected: (_) => setState(() => _selectedType = type),
               );
@@ -222,9 +230,13 @@ class _NewPostSheetState extends State<_NewPostSheet> {
           TextField(
             controller: _textController,
             maxLines: 3,
+            style: const TextStyle(color: _cream),
             decoration: InputDecoration(
               hintText: 'Bijvoorbeeld: eerste toes-to-bar! 🎉',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              hintStyle: TextStyle(color: _cream.withOpacity(0.4)),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             ),
           ),
           const SizedBox(height: 16),
@@ -232,7 +244,7 @@ class _NewPostSheetState extends State<_NewPostSheet> {
           ElevatedButton(
             onPressed: _isSubmitting ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B1E2B),
+              backgroundColor: _red,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),

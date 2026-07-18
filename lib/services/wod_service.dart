@@ -18,6 +18,7 @@ class WodService {
     required String wodName,
     required int timeInSeconds,
     required bool isScaled,
+    String? note,
   }) async {
     final nickname = await _currentNickname();
 
@@ -28,6 +29,7 @@ class WodService {
       'timeInSeconds': timeInSeconds,
       'rounds': null,
       'extraReps': null,
+      'note': note,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -37,6 +39,7 @@ class WodService {
     required int rounds,
     required int extraReps,
     required bool isScaled,
+    String? note,
   }) async {
     final nickname = await _currentNickname();
 
@@ -47,6 +50,7 @@ class WodService {
       'timeInSeconds': null,
       'rounds': rounds,
       'extraReps': extraReps,
+      'note': note,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
