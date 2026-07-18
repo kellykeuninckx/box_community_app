@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/wall_of_fame_post.dart';
+import 'user_profile_service.dart';
 
 /// Reacties worden voor nu simpel als teller bijgehouden (niet per gebruiker) —
 /// bewust eenvoudig gehouden voor de eerste versie.
@@ -15,10 +16,13 @@ class WallOfFameService {
   }
 
   Future<void> addPost({required String type, required String text}) async {
-    final email = FirebaseAuth.instance.currentUser?.email ?? 'Onbekend';
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final nickname = uid != null
+        ? await UserProfileService().nicknameFor(uid)
+        : 'Onbekend lid';
 
     await _collection.add({
-      'authorEmail': email,
+      'authorNickname': nickname,
       'type': type,
       'text': text,
       'createdAt': FieldValue.serverTimestamp(),

@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WallOfFamePost {
   final String id;
-  final String authorEmail;
+  final String authorNickname;
   final String type;
   final String text;
   final DateTime createdAt;
@@ -10,7 +10,7 @@ class WallOfFamePost {
 
   WallOfFamePost({
     required this.id,
-    required this.authorEmail,
+    required this.authorNickname,
     required this.type,
     required this.text,
     required this.createdAt,
@@ -21,7 +21,7 @@ class WallOfFamePost {
     final data = doc.data() as Map<String, dynamic>;
     return WallOfFamePost(
       id: doc.id,
-      authorEmail: data['authorEmail'] ?? '',
+      authorNickname: data['authorNickname'] ?? 'Onbekend lid',
       type: data['type'] ?? 'Mijlpaal',
       text: data['text'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),

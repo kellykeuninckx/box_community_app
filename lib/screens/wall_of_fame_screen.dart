@@ -94,7 +94,7 @@ class _PostCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  post.authorEmail,
+                  post.authorNickname,
                   style: const TextStyle(fontSize: 11, color: Colors.black45),
                 ),
               ],
