@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/wall_of_fame_post.dart';
 import '../services/wall_of_fame_service.dart';
 
@@ -103,20 +104,30 @@ class _PostCard extends StatelessWidget {
             Text(post.text, style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 10),
             Row(
-              children: post.reactions.entries.map((entry) {
+              children: post.reactionCounts.entries.map((entry) {
+                final emoji = entry.key;
+                final count = entry.value;
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                final isMine = uid != null && post.reactionFor(uid) == emoji;
+
                 return Padding(
                   padding: const EdgeInsets.only(right: 10),
                   child: InkWell(
-                    onTap: () => service.addReaction(post.id, entry.key),
+                    onTap: () => service.toggleReaction(post.id, emoji),
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.05),
+                        color: isMine
+                            ? const Color(0xFF8B1E2B).withOpacity(0.15)
+                            : Colors.black.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(20),
+                        border: isMine
+                            ? Border.all(color: const Color(0xFF8B1E2B), width: 1)
+                            : null,
                       ),
                       child: Text(
-                        '${entry.key} ${entry.value}',
+                        '$emoji $count',
                         style: const TextStyle(fontSize: 13),
                       ),
                     ),

@@ -26,13 +26,25 @@ class WallOfFameService {
       'type': type,
       'text': text,
       'createdAt': FieldValue.serverTimestamp(),
-      'reactions': {'👏': 0, '🔥': 0, '💪': 0},
+      'reactionsByUser': <String, String>{},
     });
   }
 
-  Future<void> addReaction(String postId, String emoji) async {
-    await _collection.doc(postId).update({
-      'reactions.$emoji': FieldValue.increment(1),
-    });
+  /// Precies één reactie per persoon: nogmaals tikken op dezelfde emoji trekt 'm in,
+  /// tikken op een andere emoji wisselt de keuze.
+  Future<void> toggleReaction(String postId, String emoji) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final docRef = _collection.doc(postId);
+    final doc = await docRef.get();
+    final data = doc.data() as Map<String, dynamic>?;
+    final current = Map<String, dynamic>.from(data?['reactionsByUser'] ?? {});
+
+    if (current[uid] == emoji) {
+      await docRef.update({'reactionsByUser.$uid': FieldValue.delete()});
+    } else {
+      await docRef.update({'reactionsByUser.$uid': emoji});
+    }
   }
 }
