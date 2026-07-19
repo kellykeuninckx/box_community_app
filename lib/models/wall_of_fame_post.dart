@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WallOfFamePost {
   final String id;
+  final String authorUid;
   final String authorNickname;
   final String type;
   final String text;
@@ -12,6 +13,7 @@ class WallOfFamePost {
 
   WallOfFamePost({
     required this.id,
+    required this.authorUid,
     required this.authorNickname,
     required this.type,
     required this.text,
@@ -23,6 +25,7 @@ class WallOfFamePost {
     final data = doc.data() as Map<String, dynamic>;
     return WallOfFamePost(
       id: doc.id,
+      authorUid: data['authorUid'] ?? '',
       authorNickname: data['authorNickname'] ?? 'Onbekend lid',
       type: data['type'] ?? 'Mijlpaal',
       text: data['text'] ?? '',

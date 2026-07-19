@@ -22,12 +22,17 @@ class WallOfFameService {
         : 'Onbekend lid';
 
     await _collection.add({
+      'authorUid': uid ?? '',
       'authorNickname': nickname,
       'type': type,
       'text': text,
       'createdAt': FieldValue.serverTimestamp(),
       'reactionsByUser': <String, String>{},
     });
+  }
+
+  Future<void> deletePost(String postId) async {
+    await _collection.doc(postId).delete();
   }
 
   /// Precies één reactie per persoon: nogmaals tikken op dezelfde emoji trekt 'm in,

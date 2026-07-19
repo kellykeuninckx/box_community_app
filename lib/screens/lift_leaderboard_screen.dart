@@ -3,6 +3,8 @@ import '../models/lift_pr.dart';
 import '../models/weight_class.dart';
 import '../services/lift_pr_service.dart';
 import '../services/user_profile_service.dart';
+import '../widgets/logo_pattern_background.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
@@ -28,7 +30,11 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
         backgroundColor: _navy,
         foregroundColor: _cream,
       ),
-      body: Column(
+      backgroundColor: _navy,
+      body: Stack(
+        children: [
+          const LogoPatternBackground(),
+          Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
@@ -86,8 +92,8 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
                 return ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   children: [
-                    if (women.isNotEmpty) ..._genderSection('Vrouwen', women),
-                    if (men.isNotEmpty) ..._genderSection('Mannen', men),
+                    if (women.isNotEmpty) ..._genderSection(context, 'Vrouwen', women),
+                    if (men.isNotEmpty) ..._genderSection(context, 'Mannen', men),
                   ],
                 );
               },
@@ -108,11 +114,13 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
             ),
           ),
         ],
+          ),
+        ],
       ),
     );
   }
 
-  List<Widget> _genderSection(String title, List<LiftPr> prs) {
+  List<Widget> _genderSection(BuildContext context, String title, List<LiftPr> prs) {
     final grouped = <String, List<LiftPr>>{};
     for (final pr in prs) {
       final weightClass = WeightClass.forWeight(pr.gender, pr.bodyweightKg);
@@ -143,20 +151,63 @@ class _LiftLeaderboardScreenState extends State<LiftLeaderboardScreen> {
       final sorted = List<LiftPr>.from(entry.value)
         ..sort((a, b) => b.weightKg.compareTo(a.weightKg));
 
-      widgets.addAll(sorted.map((pr) => Card(
-            margin: const EdgeInsets.only(bottom: 6),
-            child: ListTile(
-              dense: true,
-              title: Text(pr.nickname, style: const TextStyle(color: _cream)),
-              trailing: Text(
-                '${pr.weightKg.toStringAsFixed(1)} kg',
-                style: const TextStyle(fontWeight: FontWeight.w600, color: _cream),
-              ),
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+      widgets.addAll(sorted.map((pr) {
+        final isMine = currentUid != null && currentUid == pr.uid;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 6),
+          child: ListTile(
+            dense: true,
+            title: Text(pr.nickname, style: const TextStyle(color: _cream)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${pr.weightKg.toStringAsFixed(1)} kg',
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: _cream),
+                ),
+                if (isMine)
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, size: 20, color: _cream.withOpacity(0.5)),
+                    onPressed: () => _confirmDelete(context, pr),
+                  ),
+              ],
             ),
-          )));
+          ),
+        );
+      }));
     }
 
     return widgets;
+  }
+
+  void _confirmDelete(BuildContext context, LiftPr pr) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1B2E5C),
+        title: const Text('PR verwijderen?', style: TextStyle(color: _cream)),
+        content: Text(
+          'Dit verwijdert jouw ${pr.lift}-PR. Dit kan niet ongedaan gemaakt worden.',
+          style: TextStyle(color: _cream.withOpacity(0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Annuleer', style: TextStyle(color: _cream.withOpacity(0.7))),
+          ),
+          TextButton(
+            onPressed: () {
+              _service.deletePr('${pr.uid}_${pr.lift}');
+              Navigator.of(context).pop();
+            },
+            child: const Text('Verwijder', style: TextStyle(color: _red)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSubmitSheet(BuildContext context) {

@@ -41,4 +41,8 @@ class LiftPrService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  Future<void> deletePr(String docId) async {
+    await _collection.doc(docId).delete();
+  }
 }

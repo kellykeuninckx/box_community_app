@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/wall_of_fame_post.dart';
 import '../services/wall_of_fame_service.dart';
+import '../widgets/logo_pattern_background.dart';
 
 const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
 const _navy = Color(0xFF0F1C3F);
+const _cardColor = Color(0xFF1B2E5C);
 
 class WallOfFameScreen extends StatelessWidget {
   const WallOfFameScreen({super.key});
@@ -20,43 +22,48 @@ class WallOfFameScreen extends StatelessWidget {
         backgroundColor: _navy,
         foregroundColor: _cream,
       ),
-      backgroundColor: Colors.transparent,
-      body: StreamBuilder<List<WallOfFamePost>>(
-        stream: service.posts,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      backgroundColor: _navy,
+      body: Stack(
+        children: [
+          const LogoPatternBackground(),
+          StreamBuilder<List<WallOfFamePost>>(
+            stream: service.posts,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Er ging iets mis: ${snapshot.error}',
-                style: const TextStyle(color: _cream),
-              ),
-            );
-          }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Er ging iets mis: ${snapshot.error}',
+                    style: const TextStyle(color: _cream),
+                  ),
+                );
+              }
 
-          final posts = snapshot.data ?? [];
+              final posts = snapshot.data ?? [];
 
-          if (posts.isEmpty) {
-            return Center(
-              child: Text(
-                'Nog geen prestaties gedeeld.\nWees de eerste!',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _cream.withOpacity(0.6)),
-              ),
-            );
-          }
+              if (posts.isEmpty) {
+                return Center(
+                  child: Text(
+                    'Nog geen prestaties gedeeld.\nWees de eerste!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _cream.withOpacity(0.6)),
+                  ),
+                );
+              }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              return _PostCard(post: posts[index], service: service);
+              return ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: posts.length,
+                itemBuilder: (context, index) {
+                  return _PostCard(post: posts[index], service: service);
+                },
+              );
             },
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: _red,
@@ -96,16 +103,15 @@ class _PostCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _red.withOpacity(0.25),
+                    color: _cream,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _red.withOpacity(0.6)),
                   ),
                   child: Text(
                     post.type,
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: _cream,
+                      color: _navy,
                     ),
                   ),
                 ),
@@ -114,6 +120,15 @@ class _PostCard extends StatelessWidget {
                   post.authorNickname,
                   style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.55)),
                 ),
+                if (FirebaseAuth.instance.currentUser?.uid == post.authorUid) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _confirmDelete(context),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -149,6 +164,33 @@ class _PostCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: _cardColor,
+        title: const Text('Post verwijderen?', style: TextStyle(color: _cream)),
+        content: Text(
+          'Dit verwijdert jouw post van de Wall of Fame. Dit kan niet ongedaan gemaakt worden.',
+          style: TextStyle(color: _cream.withOpacity(0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Annuleer', style: TextStyle(color: _cream.withOpacity(0.7))),
+          ),
+          TextButton(
+            onPressed: () {
+              service.deletePost(post.id);
+              Navigator.of(context).pop();
+            },
+            child: const Text('Verwijder', style: TextStyle(color: _red)),
+          ),
+        ],
       ),
     );
   }

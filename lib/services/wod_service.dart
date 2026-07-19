@@ -20,9 +20,11 @@ class WodService {
     required bool isScaled,
     String? note,
   }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final nickname = await _currentNickname();
 
     await _collection.add({
+      'uid': uid,
       'wodName': wodName,
       'nickname': nickname,
       'isScaled': isScaled,
@@ -41,9 +43,11 @@ class WodService {
     required bool isScaled,
     String? note,
   }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final nickname = await _currentNickname();
 
     await _collection.add({
+      'uid': uid,
       'wodName': wodName,
       'nickname': nickname,
       'isScaled': isScaled,
@@ -53,6 +57,10 @@ class WodService {
       'note': note,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> deleteScore(String scoreId) async {
+    await _collection.doc(scoreId).delete();
   }
 
   Future<String> _currentNickname() async {

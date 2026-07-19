@@ -41,8 +41,11 @@ class _SignupScreenState extends State<SignupScreen> {
       _errorMessage = error;
     });
 
-    // Bij succes (error == null) pikt AuthGate de nieuwe login automatisch op —
-    // geen handmatige navigatie nodig.
+    // Bij succes expliciet terug naar de basis — anders blijft dit scherm
+    // nog even overheen staan terwijl de inhoud daaronder al is bijgewerkt.
+    if (error == null && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   @override
@@ -129,7 +132,7 @@ class _SignupScreenState extends State<SignupScreen> {
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.08),
+      fillColor: Colors.white.withOpacity(0.08),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,

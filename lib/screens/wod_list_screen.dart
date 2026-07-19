@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/wod.dart';
 import 'wod_detail_screen.dart';
+import '../widgets/logo_pattern_background.dart';
 
 const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
@@ -31,42 +32,47 @@ class _WodListScreenState extends State<WodListScreen> {
         backgroundColor: _navy,
         foregroundColor: _cream,
       ),
-      backgroundColor: Colors.transparent,
-      body: Column(
+      backgroundColor: _navy,
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              style: const TextStyle(color: _cream),
-              decoration: InputDecoration(
-                hintText: 'Zoek een WOD...',
-                hintStyle: TextStyle(color: _cream.withOpacity(0.4)),
-                prefixIcon: Icon(Icons.search, color: _cream.withOpacity(0.6)),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.06),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onChanged: (value) => setState(() => _query = value),
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                if (girls.isNotEmpty) ..._section('Girls', girls, context),
-                if (heroes.isNotEmpty) ..._section('Hero WODs', heroes, context),
-                if (filtered.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: Center(
-                      child: Text('Geen WOD gevonden.', style: TextStyle(color: _cream.withOpacity(0.6))),
+          const LogoPatternBackground(),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: TextField(
+                  style: const TextStyle(color: _cream),
+                  decoration: InputDecoration(
+                    hintText: 'Zoek een WOD...',
+                    hintStyle: TextStyle(color: _cream.withOpacity(0.4)),
+                    prefixIcon: Icon(Icons.search, color: _cream.withOpacity(0.6)),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.06),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
                     ),
                   ),
-              ],
-            ),
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    if (girls.isNotEmpty) ..._section('Girls', girls, context),
+                    if (heroes.isNotEmpty) ..._section('Hero WODs', heroes, context),
+                    if (filtered.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 40),
+                        child: Center(
+                          child: Text('Geen WOD gevonden.', style: TextStyle(color: _cream.withOpacity(0.6))),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

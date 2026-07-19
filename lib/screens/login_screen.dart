@@ -43,6 +43,96 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  void _showForgotPasswordDialog() {
+    final resetEmailController = TextEditingController(text: _emailController.text.trim());
+    String? dialogError;
+    bool isSending = false;
+    bool didSend = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF16264B),
+              title: const Text('Wachtwoord opnieuw instellen', style: TextStyle(color: Colors.white)),
+              content: didSend
+                  ? const Text(
+                      'Check je mailbox — als dit e-mailadres bekend is, is er een link verstuurd om een nieuw wachtwoord in te stellen.',
+                      style: TextStyle(color: Colors.white70),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Vul je e-mailadres in, dan sturen we een link om een nieuw wachtwoord in te stellen.',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: resetEmailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'E-mailadres',
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                        if (dialogError != null) ...[
+                          const SizedBox(height: 8),
+                          Text(dialogError!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                        ],
+                      ],
+                    ),
+              actions: didSend
+                  ? [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Sluiten', style: TextStyle(color: Colors.white70)),
+                      ),
+                    ]
+                  : [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Annuleer', style: TextStyle(color: Colors.white70)),
+                      ),
+                      TextButton(
+                        onPressed: isSending
+                            ? null
+                            : () async {
+                                final email = resetEmailController.text.trim();
+                                if (email.isEmpty) {
+                                  setDialogState(() => dialogError = 'Vul een e-mailadres in.');
+                                  return;
+                                }
+
+                                setDialogState(() => isSending = true);
+                                final error = await _authService.sendPasswordReset(email);
+                                setDialogState(() {
+                                  isSending = false;
+                                  if (error == null) {
+                                    didSend = true;
+                                  } else {
+                                    dialogError = error;
+                                  }
+                                });
+                              },
+                        child: Text(
+                          isSending ? 'Bezig...' : 'Verstuur',
+                          style: const TextStyle(color: Color(0xFF8B1E2B)),
+                        ),
+                      ),
+                    ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,7 +171,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: const TextStyle(color: Colors.white),
                 decoration: _inputDecoration('Wachtwoord'),
               ),
-              const SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _showForgotPasswordDialog,
+                  child: const Text(
+                    'Wachtwoord vergeten?',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               if (_errorMessage != null) ...[
                 Text(
@@ -138,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.08),
+      fillColor: Colors.white.withOpacity(0.08),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,

@@ -30,6 +30,15 @@ class AuthService {
     await _auth.signOut();
   }
 
+  Future<String?> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _friendlyError(e);
+    }
+  }
+
   String _friendlyError(FirebaseAuthException e) {
     switch (e.code) {
       case 'email-already-in-use':

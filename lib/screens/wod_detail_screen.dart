@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/wod.dart';
 import '../models/wod_score.dart';
 import '../services/wod_service.dart';
+import '../widgets/logo_pattern_background.dart';
 
 const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
@@ -23,7 +25,11 @@ class WodDetailScreen extends StatelessWidget {
         backgroundColor: _navy,
         foregroundColor: _cream,
       ),
-      body: StreamBuilder<List<WodScore>>(
+      backgroundColor: _navy,
+      body: Stack(
+        children: [
+          const LogoPatternBackground(),
+          StreamBuilder<List<WodScore>>(
         stream: service.scoresFor(wod.name),
         builder: (context, snapshot) {
           Widget resultsSection;
@@ -62,7 +68,7 @@ class WodDetailScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     for (int i = 0; i < scores.length; i++) ...[
-                      _ScoreRow(score: scores[i]),
+                      _ScoreRow(score: scores[i], service: service),
                       if (i < scores.length - 1)
                         Divider(height: 1, color: _cream.withOpacity(0.1)),
                     ],
@@ -109,6 +115,8 @@ class WodDetailScreen extends StatelessWidget {
             ],
           );
         },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: _red,
@@ -130,26 +138,67 @@ class WodDetailScreen extends StatelessWidget {
 
 class _ScoreRow extends StatelessWidget {
   final WodScore score;
+  final WodService service;
 
-  const _ScoreRow({required this.score});
+  const _ScoreRow({required this.score, required this.service});
 
   @override
   Widget build(BuildContext context) {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final isMine = currentUid != null && currentUid == score.uid;
+
     return ListTile(
       title: Text(score.nickname, style: const TextStyle(color: _cream)),
       subtitle: score.note != null && score.note!.isNotEmpty
           ? Text(score.note!, style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5)))
           : null,
-      trailing: Column(
+      trailing: Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(
-            score.formattedScore,
-            style: const TextStyle(fontWeight: FontWeight.w600, color: _cream),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                score.formattedScore,
+                style: const TextStyle(fontWeight: FontWeight.w600, color: _cream),
+              ),
+              if (score.isScaled)
+                Text('Scaled', style: TextStyle(fontSize: 10, color: _cream.withOpacity(0.5))),
+            ],
           ),
-          if (score.isScaled)
-            Text('Scaled', style: TextStyle(fontSize: 10, color: _cream.withOpacity(0.5))),
+          if (isMine)
+            IconButton(
+              icon: Icon(Icons.delete_outline, size: 20, color: _cream.withOpacity(0.5)),
+              onPressed: () => _confirmDelete(context),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: _cardColor,
+        title: const Text('Score verwijderen?', style: TextStyle(color: _cream)),
+        content: Text(
+          'Dit verwijdert jouw score voor deze WOD. Dit kan niet ongedaan gemaakt worden.',
+          style: TextStyle(color: _cream.withOpacity(0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Annuleer', style: TextStyle(color: _cream.withOpacity(0.7))),
+          ),
+          TextButton(
+            onPressed: () {
+              service.deleteScore(score.id);
+              Navigator.of(context).pop();
+            },
+            child: const Text('Verwijder', style: TextStyle(color: _red)),
+          ),
         ],
       ),
     );

@@ -9,12 +9,19 @@ class UserProfile {
   final String? gender;
   final double? bodyweightKg;
 
+  /// Handmatig gezet in de Firebase Console (geen in-app beheerscherm) — coaches
+  /// mogen posten bij Foto's, admins (een subset van de coaches) ook bij Nieuws.
+  final bool isCoach;
+  final bool isAdmin;
+
   UserProfile({
     required this.uid,
     required this.nickname,
     required this.createdAt,
     this.gender,
     this.bodyweightKg,
+    this.isCoach = false,
+    this.isAdmin = false,
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -25,6 +32,8 @@ class UserProfile {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       gender: data['gender'],
       bodyweightKg: (data['bodyweightKg'] as num?)?.toDouble(),
+      isCoach: data['isCoach'] ?? false,
+      isAdmin: data['isAdmin'] ?? false,
     );
   }
 
