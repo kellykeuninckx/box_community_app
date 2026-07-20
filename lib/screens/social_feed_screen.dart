@@ -23,7 +23,7 @@ class SocialFeedScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: _navy,
       appBar: AppBar(
-        title: const Text('Sociaal'),
+        title: const Text('Koffiehoekje'),
         backgroundColor: _navy,
         foregroundColor: _cream,
       ),
