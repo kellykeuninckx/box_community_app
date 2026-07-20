@@ -17,6 +17,14 @@ class PhotoService {
         .map((snapshot) => snapshot.docs.map(PhotoPost.fromFirestore).toList());
   }
 
+  /// Eenmalige lijst van al gebruikte evenement-albumnamen, voor suggesties bij het uploaden.
+  Future<List<String>> existingEventAlbumTitles() async {
+    final snapshot = await _collection.where('category', isEqualTo: 'event').get();
+    final titles = snapshot.docs.map((doc) => (doc.data() as Map<String, dynamic>)['title'] as String? ?? '').where((t) => t.isNotEmpty).toSet().toList();
+    titles.sort();
+    return titles;
+  }
+
   Future<void> uploadPhoto({
     required File imageFile,
     required PhotoCategory category,

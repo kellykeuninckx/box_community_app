@@ -184,13 +184,21 @@ class _NewsCard extends StatelessWidget {
                 Expanded(
                   child: Text(post.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _cream)),
                 ),
-                if (isMine || isAdmin)
+                if (isMine || isAdmin) ...[
+                  IconButton(
+                    icon: Icon(Icons.edit_outlined, size: 18, color: _cream.withOpacity(0.5)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showEditSheet(context),
+                  ),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _confirmDelete(context),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 6),
@@ -223,12 +231,22 @@ class _NewsCard extends StatelessWidget {
       ),
     );
   }
+
+  void _showEditSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _cardColor,
+      builder: (_) => _NewNewsSheet(service: service, existingPost: post),
+    );
+  }
 }
 
 class _NewNewsSheet extends StatefulWidget {
   final NewsService service;
+  final NewsPost? existingPost;
 
-  const _NewNewsSheet({required this.service});
+  const _NewNewsSheet({required this.service, this.existingPost});
 
   @override
   State<_NewNewsSheet> createState() => _NewNewsSheetState();
@@ -238,6 +256,15 @@ class _NewNewsSheetState extends State<_NewNewsSheet> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingPost != null) {
+      _titleController.text = widget.existingPost!.title;
+      _bodyController.text = widget.existingPost!.body;
+    }
+  }
 
   @override
   void dispose() {
@@ -250,7 +277,11 @@ class _NewNewsSheetState extends State<_NewNewsSheet> {
     if (_titleController.text.trim().isEmpty || _bodyController.text.trim().isEmpty) return;
 
     setState(() => _isSubmitting = true);
-    await widget.service.addPost(title: _titleController.text.trim(), body: _bodyController.text.trim());
+    if (widget.existingPost != null) {
+      await widget.service.updatePost(widget.existingPost!.id, title: _titleController.text.trim(), body: _bodyController.text.trim());
+    } else {
+      await widget.service.addPost(title: _titleController.text.trim(), body: _bodyController.text.trim());
+    }
 
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -264,7 +295,10 @@ class _NewNewsSheetState extends State<_NewNewsSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Nieuw bericht', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream)),
+          Text(
+            widget.existingPost != null ? 'Bericht bewerken' : 'Nieuw bericht',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream),
+          ),
           const SizedBox(height: 16),
           TextField(
             controller: _titleController,
@@ -284,7 +318,7 @@ class _NewNewsSheetState extends State<_NewNewsSheet> {
             style: ElevatedButton.styleFrom(backgroundColor: _red, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
             child: _isSubmitting
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Plaatsen'),
+                : Text(widget.existingPost != null ? 'Opslaan' : 'Plaatsen'),
           ),
         ],
       ),
@@ -363,13 +397,21 @@ class _AgendaCard extends StatelessWidget {
                   child: Text(formattedDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _navy)),
                 ),
                 const Spacer(),
-                if (isMine || isAdmin)
+                if (isMine || isAdmin) ...[
+                  IconButton(
+                    icon: Icon(Icons.edit_outlined, size: 18, color: _cream.withOpacity(0.5)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showEditSheet(context),
+                  ),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _confirmDelete(context),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -404,12 +446,22 @@ class _AgendaCard extends StatelessWidget {
       ),
     );
   }
+
+  void _showEditSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _cardColor,
+      builder: (_) => _NewAgendaSheet(service: service, existingEvent: event),
+    );
+  }
 }
 
 class _NewAgendaSheet extends StatefulWidget {
   final AgendaService service;
+  final AgendaEvent? existingEvent;
 
-  const _NewAgendaSheet({required this.service});
+  const _NewAgendaSheet({required this.service, this.existingEvent});
 
   @override
   State<_NewAgendaSheet> createState() => _NewAgendaSheetState();
@@ -421,6 +473,16 @@ class _NewAgendaSheetState extends State<_NewAgendaSheet> {
   DateTime _selectedDate = DateTime.now();
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingEvent != null) {
+      _titleController.text = widget.existingEvent!.title;
+      _descriptionController.text = widget.existingEvent!.description;
+      _selectedDate = widget.existingEvent!.eventDate;
+    }
+  }
 
   @override
   void dispose() {
@@ -452,11 +514,20 @@ class _NewAgendaSheetState extends State<_NewAgendaSheet> {
 
     setState(() => _isSubmitting = true);
 
-    await widget.service.addEvent(
-      title: _titleController.text.trim(),
-      description: _descriptionController.text.trim(),
-      eventDate: _selectedDate,
-    );
+    if (widget.existingEvent != null) {
+      await widget.service.updateEvent(
+        widget.existingEvent!.id,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        eventDate: _selectedDate,
+      );
+    } else {
+      await widget.service.addEvent(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        eventDate: _selectedDate,
+      );
+    }
 
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -470,7 +541,10 @@ class _NewAgendaSheetState extends State<_NewAgendaSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Nieuw event', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream)),
+          Text(
+            widget.existingEvent != null ? 'Event bewerken' : 'Nieuw event',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream),
+          ),
           const SizedBox(height: 16),
 
           OutlinedButton.icon(
@@ -510,7 +584,7 @@ class _NewAgendaSheetState extends State<_NewAgendaSheet> {
             style: ElevatedButton.styleFrom(backgroundColor: _red, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
             child: _isSubmitting
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Plaatsen'),
+                : Text(widget.existingEvent != null ? 'Opslaan' : 'Plaatsen'),
           ),
         ],
       ),

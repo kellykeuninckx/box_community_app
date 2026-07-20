@@ -40,4 +40,17 @@ class AgendaService {
   Future<void> deleteEvent(String eventId) async {
     await _collection.doc(eventId).delete();
   }
+
+  Future<void> updateEvent(
+    String eventId, {
+    required String title,
+    required String description,
+    required DateTime eventDate,
+  }) async {
+    await _collection.doc(eventId).update({
+      'title': title,
+      'description': description,
+      'eventDate': Timestamp.fromDate(eventDate),
+    });
+  }
 }

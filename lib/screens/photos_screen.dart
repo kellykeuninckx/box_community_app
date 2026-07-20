@@ -23,7 +23,7 @@ class PhotosScreen extends StatefulWidget {
 }
 
 class _PhotosScreenState extends State<PhotosScreen> {
-  PhotoCategory _selectedCategory = PhotoCategory.event;
+  PhotoCategory _selectedCategory = PhotoCategory.daily;
   final _service = PhotoService();
 
   @override
@@ -50,8 +50,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     padding: const EdgeInsets.all(12),
                     child: SegmentedButton<PhotoCategory>(
                       segments: const [
+                        ButtonSegment(value: PhotoCategory.daily, label: Text('Scores')),
                         ButtonSegment(value: PhotoCategory.event, label: Text('Evenementen')),
-                        ButtonSegment(value: PhotoCategory.daily, label: Text('Dagelijks bord')),
                       ],
                       selected: {_selectedCategory},
                       onSelectionChanged: (selection) => setState(() => _selectedCategory = selection.first),
@@ -66,56 +66,42 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     ),
                   ),
                   Expanded(
-                    child: StreamBuilder<List<PhotoPost>>(
-                      stream: _service.postsFor(_selectedCategory),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
+                    child: _selectedCategory == PhotoCategory.event
+                        ? _EventAlbumsView(service: _service, isAdmin: isAdmin)
+                        : StreamBuilder<List<PhotoPost>>(
+                            stream: _service.postsFor(_selectedCategory),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
 
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                'Fout bij laden: ${snapshot.error}',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                              ),
-                            ),
-                          );
-                        }
+                              if (snapshot.hasError) {
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Text(
+                                      'Fout bij laden: ${snapshot.error}',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                    ),
+                                  ),
+                                );
+                              }
 
-                        final posts = snapshot.data ?? [];
+                              final posts = snapshot.data ?? [];
 
-                        if (posts.isEmpty) {
-                          return Center(
-                            child: Text(
-                              'Nog geen foto\'s in dit album.',
-                              style: TextStyle(color: _cream.withOpacity(0.6)),
-                            ),
-                          );
-                        }
+                              if (posts.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    'Nog geen foto\'s.',
+                                    style: TextStyle(color: _cream.withOpacity(0.6)),
+                                  ),
+                                );
+                              }
 
-                        return GridView.builder(
-                          padding: const EdgeInsets.all(12),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.85,
+                              return _PhotoGrid(posts: posts, service: _service, isAdmin: isAdmin);
+                            },
                           ),
-                          itemCount: posts.length,
-                          itemBuilder: (context, index) {
-                            final post = posts[index];
-                            final canDelete = isAdmin ||
-                                (FirebaseAuth.instance.currentUser?.uid == post.uid);
-
-                            return _PhotoTile(post: post, service: _service, canDelete: canDelete);
-                          },
-                        );
-                      },
-                    ),
                   ),
                 ],
               );
@@ -144,6 +130,194 @@ class _PhotosScreenState extends State<PhotosScreen> {
       isScrollControlled: true,
       backgroundColor: _cardColor,
       builder: (_) => _UploadSheet(service: _service, initialCategory: _selectedCategory),
+    );
+  }
+}
+
+/// Herbruikbaar rooster van foto's — gebruikt voor zowel Scores (platte lijst)
+/// als de inhoud van één specifiek evenement-album.
+class _PhotoGrid extends StatelessWidget {
+  final List<PhotoPost> posts;
+  final PhotoService service;
+  final bool isAdmin;
+
+  const _PhotoGrid({required this.posts, required this.service, required this.isAdmin});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: posts.length,
+      itemBuilder: (context, index) {
+        final post = posts[index];
+        final canDelete = isAdmin || (FirebaseAuth.instance.currentUser?.uid == post.uid);
+
+        return _PhotoTile(post: post, service: service, canDelete: canDelete);
+      },
+    );
+  }
+}
+
+/// Groepeert evenement-foto's op titel (= albumnaam) en toont er een lijst albums van.
+class _EventAlbumsView extends StatelessWidget {
+  final PhotoService service;
+  final bool isAdmin;
+
+  const _EventAlbumsView({required this.service, required this.isAdmin});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PhotoPost>>(
+      stream: service.postsFor(PhotoCategory.event),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Fout bij laden: ${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+              ),
+            ),
+          );
+        }
+
+        final posts = snapshot.data ?? [];
+
+        if (posts.isEmpty) {
+          return Center(
+            child: Text('Nog geen albums.', style: TextStyle(color: _cream.withOpacity(0.6))),
+          );
+        }
+
+        // Groepeer op titel, posts staan al aflopend op datum, dus de eerste
+        // van elke groep is meteen de nieuwste (= cover).
+        final albums = <String, List<PhotoPost>>{};
+        for (final post in posts) {
+          albums.putIfAbsent(post.title, () => []).add(post);
+        }
+
+        final albumTitles = albums.keys.toList();
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.85,
+          ),
+          itemCount: albumTitles.length,
+          itemBuilder: (context, index) {
+            final title = albumTitles[index];
+            final albumPosts = albums[title]!;
+
+            return _AlbumTile(title: title, coverPost: albumPosts.first, count: albumPosts.length, posts: albumPosts, service: service, isAdmin: isAdmin);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AlbumTile extends StatelessWidget {
+  final String title;
+  final PhotoPost coverPost;
+  final int count;
+  final List<PhotoPost> posts;
+  final PhotoService service;
+  final bool isAdmin;
+
+  const _AlbumTile({
+    required this.title,
+    required this.coverPost,
+    required this.count,
+    required this.posts,
+    required this.service,
+    required this.isAdmin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _AlbumDetailScreen(title: title, posts: posts, service: service, isAdmin: isAdmin),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    coverPost.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: _cardColor,
+                      child: Icon(Icons.broken_image, color: _cream.withOpacity(0.4)),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                    child: Text('$count', style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _cream),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlbumDetailScreen extends StatelessWidget {
+  final String title;
+  final List<PhotoPost> posts;
+  final PhotoService service;
+  final bool isAdmin;
+
+  const _AlbumDetailScreen({required this.title, required this.posts, required this.service, required this.isAdmin});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _navy,
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: _navy,
+        foregroundColor: _cream,
+      ),
+      body: _PhotoGrid(posts: posts, service: service, isAdmin: isAdmin),
     );
   }
 }
@@ -214,14 +388,22 @@ class _UploadSheet extends StatefulWidget {
 class _UploadSheetState extends State<_UploadSheet> {
   final _titleController = TextEditingController();
   late PhotoCategory _selectedCategory;
-  File? _selectedImage;
+  final List<File> _selectedImages = [];
   bool _isUploading = false;
+  int _uploadedCount = 0;
   String? _errorMessage;
+  List<String> _existingAlbumTitles = [];
 
   @override
   void initState() {
     super.initState();
     _selectedCategory = widget.initialCategory;
+    _loadExistingAlbums();
+  }
+
+  Future<void> _loadExistingAlbums() async {
+    final titles = await widget.service.existingEventAlbumTitles();
+    if (mounted) setState(() => _existingAlbumTitles = titles);
   }
 
   @override
@@ -230,24 +412,29 @@ class _UploadSheetState extends State<_UploadSheet> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImages() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
+    final picked = await picker.pickMultiImage(
       maxWidth: 1600,
       imageQuality: 70,
     );
 
-    if (picked != null) {
-      setState(() => _selectedImage = File(picked.path));
+    if (picked.isNotEmpty) {
+      setState(() {
+        _selectedImages.addAll(picked.map((x) => File(x.path)));
+      });
     }
+  }
+
+  void _removeImage(int index) {
+    setState(() => _selectedImages.removeAt(index));
   }
 
   Future<void> _submit() async {
     setState(() => _errorMessage = null);
 
-    if (_selectedImage == null) {
-      setState(() => _errorMessage = 'Kies eerst een foto.');
+    if (_selectedImages.isEmpty) {
+      setState(() => _errorMessage = 'Kies eerst minstens één foto.');
       return;
     }
     if (_titleController.text.trim().isEmpty) {
@@ -255,13 +442,21 @@ class _UploadSheetState extends State<_UploadSheet> {
       return;
     }
 
-    setState(() => _isUploading = true);
+    setState(() {
+      _isUploading = true;
+      _uploadedCount = 0;
+    });
 
-    await widget.service.uploadPhoto(
-      imageFile: _selectedImage!,
-      category: _selectedCategory,
-      title: _titleController.text.trim(),
-    );
+    for (final image in _selectedImages) {
+      await widget.service.uploadPhoto(
+        imageFile: image,
+        category: _selectedCategory,
+        title: _titleController.text.trim(),
+      );
+
+      if (!mounted) return;
+      setState(() => _uploadedCount++);
+    }
 
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -280,13 +475,13 @@ class _UploadSheetState extends State<_UploadSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Nieuwe foto plaatsen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream)),
+          const Text('Nieuwe foto\'s plaatsen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream)),
           const SizedBox(height: 16),
 
           SegmentedButton<PhotoCategory>(
             segments: const [
+              ButtonSegment(value: PhotoCategory.daily, label: Text('Scores')),
               ButtonSegment(value: PhotoCategory.event, label: Text('Evenement')),
-              ButtonSegment(value: PhotoCategory.daily, label: Text('Dagelijks bord')),
             ],
             selected: {_selectedCategory},
             onSelectionChanged: (selection) => setState(() => _selectedCategory = selection.first),
@@ -301,30 +496,77 @@ class _UploadSheetState extends State<_UploadSheet> {
           ),
           const SizedBox(height: 16),
 
-          GestureDetector(
-            onTap: _pickImage,
-            child: Container(
-              height: 160,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(10),
+          if (_selectedImages.isNotEmpty) ...[
+            SizedBox(
+              height: 90,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedImages.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  if (index == _selectedImages.length) {
+                    return GestureDetector(
+                      onTap: _pickImages,
+                      child: Container(
+                        width: 90,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.add, color: _cream.withOpacity(0.5)),
+                      ),
+                    );
+                  }
+
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(_selectedImages[index], width: 90, height: 90, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: GestureDetector(
+                          onTap: () => _removeImage(index),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                            child: const Icon(Icons.close, size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-              child: _selectedImage != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.file(_selectedImage!, fit: BoxFit.cover, width: double.infinity),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_photo_alternate_outlined, color: _cream.withOpacity(0.5), size: 32),
-                        const SizedBox(height: 6),
-                        Text('Kies een foto', style: TextStyle(color: _cream.withOpacity(0.5), fontSize: 13)),
-                      ],
-                    ),
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              '${_selectedImages.length} foto${_selectedImages.length == 1 ? '' : '\'s'} geselecteerd',
+              style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5)),
+            ),
+            const SizedBox(height: 12),
+          ] else
+            GestureDetector(
+              onTap: _pickImages,
+              child: Container(
+                height: 160,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined, color: _cream.withOpacity(0.5), size: 32),
+                    const SizedBox(height: 6),
+                    Text('Kies een of meerdere foto\'s', style: TextStyle(color: _cream.withOpacity(0.5), fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
 
           TextField(
@@ -338,6 +580,24 @@ class _UploadSheetState extends State<_UploadSheet> {
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
+
+          if (_selectedCategory == PhotoCategory.event && _existingAlbumTitles.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Of voeg toe aan een bestaand album:', style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5))),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _existingAlbumTitles.map((title) {
+                return ActionChip(
+                  label: Text(title, style: const TextStyle(fontSize: 12)),
+                  backgroundColor: Colors.white.withOpacity(0.08),
+                  labelStyle: const TextStyle(color: _cream),
+                  onPressed: () => setState(() => _titleController.text = title),
+                );
+              }).toList(),
+            ),
+          ],
 
           if (_errorMessage != null) ...[
             const SizedBox(height: 8),
@@ -354,12 +614,19 @@ class _UploadSheetState extends State<_UploadSheet> {
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: _isUploading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      ),
+                      const SizedBox(width: 10),
+                      Text('Bezig... ($_uploadedCount/${_selectedImages.length})'),
+                    ],
                   )
-                : const Text('Plaatsen'),
+                : Text('Plaatsen${_selectedImages.length > 1 ? ' (${_selectedImages.length})' : ''}'),
           ),
         ],
       ),

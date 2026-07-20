@@ -31,4 +31,11 @@ class NewsService {
   Future<void> deletePost(String postId) async {
     await _collection.doc(postId).delete();
   }
+
+  Future<void> updatePost(String postId, {required String title, required String body}) async {
+    await _collection.doc(postId).update({
+      'title': title,
+      'body': body,
+    });
+  }
 }
