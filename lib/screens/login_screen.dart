@@ -144,10 +144,10 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.fitness_center, size: 56, color: Colors.white),
+              Image.asset('assets/images/logo_full.png', height: 110),
               const SizedBox(height: 12),
               const Text(
-                'Sportschool Community',
+                'The Box Community',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,

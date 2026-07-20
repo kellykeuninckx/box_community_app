@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+		<string>The Box Community heeft toegang tot je foto's nodig om een foto te kunnen plaatsen.</string>
 </dict>
 </plist>

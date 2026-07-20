@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'news_feed_screen.dart';
+import 'news_and_agenda_screen.dart';
 import 'wall_of_fame_screen.dart';
 import 'wod_list_screen.dart';
 import 'lift_leaderboard_screen.dart';
 import 'social_feed_screen.dart';
 import 'photos_screen.dart';
 import 'profile_screen.dart';
+import '../models/user_profile.dart';
+import '../services/user_profile_service.dart';
 import '../widgets/logo_pattern_background.dart';
 
 class _Tile {
@@ -20,7 +22,7 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   static final List<_Tile> _tiles = [
-    _Tile(icon: Icons.campaign, label: 'Nieuws', builder: (_) => const NewsFeedScreen()),
+    _Tile(icon: Icons.campaign, label: 'Nieuws & Agenda', builder: (_) => const NewsAndAgendaScreen()),
     _Tile(icon: Icons.emoji_events, label: 'Wall of fame', builder: (_) => const WallOfFameScreen()),
     _Tile(icon: Icons.fitness_center, label: 'Benchmark WODs', builder: (_) => const WodListScreen()),
     _Tile(icon: Icons.leaderboard, label: 'Lift leaderboard', builder: (_) => const LiftLeaderboardScreen()),
@@ -50,12 +52,30 @@ class HomeScreen extends StatelessWidget {
                       Positioned(
                         top: 4,
                         right: 8,
-                        child: IconButton(
-                          icon: const Icon(Icons.person_outline, color: Color(0xFFF0EDC8)),
-                          tooltip: 'Profiel',
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                          ),
+                        child: StreamBuilder<UserProfile?>(
+                          stream: UserProfileService().currentUserProfile,
+                          builder: (context, snapshot) {
+                            final nickname = snapshot.data?.nickname ?? '';
+                            final initial = nickname.isNotEmpty ? nickname[0].toUpperCase() : '?';
+
+                            return GestureDetector(
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                              ),
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: const Color(0xFF8B1E2B),
+                                child: Text(
+                                  initial,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],

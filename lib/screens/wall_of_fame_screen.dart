@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/wall_of_fame_post.dart';
+import '../models/user_profile.dart';
 import '../services/wall_of_fame_service.dart';
+import '../services/user_profile_service.dart';
 import '../widgets/logo_pattern_background.dart';
 
 const _cream = Color(0xFFF0EDC8);
@@ -26,39 +28,46 @@ class WallOfFameScreen extends StatelessWidget {
       body: Stack(
         children: [
           const LogoPatternBackground(),
-          StreamBuilder<List<WallOfFamePost>>(
-            stream: service.posts,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          StreamBuilder<UserProfile?>(
+            stream: UserProfileService().currentUserProfile,
+            builder: (context, profileSnapshot) {
+              final isAdmin = profileSnapshot.data?.isAdmin ?? false;
 
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    'Er ging iets mis: ${snapshot.error}',
-                    style: const TextStyle(color: _cream),
-                  ),
-                );
-              }
+              return StreamBuilder<List<WallOfFamePost>>(
+                stream: service.posts,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              final posts = snapshot.data ?? [];
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Er ging iets mis: ${snapshot.error}',
+                        style: const TextStyle(color: _cream),
+                      ),
+                    );
+                  }
 
-              if (posts.isEmpty) {
-                return Center(
-                  child: Text(
-                    'Nog geen prestaties gedeeld.\nWees de eerste!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: _cream.withOpacity(0.6)),
-                  ),
-                );
-              }
+                  final posts = snapshot.data ?? [];
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: posts.length,
-                itemBuilder: (context, index) {
-                  return _PostCard(post: posts[index], service: service);
+                  if (posts.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Nog geen prestaties gedeeld.\nWees de eerste!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: _cream.withOpacity(0.6)),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: posts.length,
+                    itemBuilder: (context, index) {
+                      return _PostCard(post: posts[index], service: service, isAdmin: isAdmin);
+                    },
+                  );
                 },
               );
             },
@@ -86,11 +95,14 @@ class WallOfFameScreen extends StatelessWidget {
 class _PostCard extends StatelessWidget {
   final WallOfFamePost post;
   final WallOfFameService service;
+  final bool isAdmin;
 
-  const _PostCard({required this.post, required this.service});
+  const _PostCard({required this.post, required this.service, required this.isAdmin});
 
   @override
   Widget build(BuildContext context) {
+    final isMine = FirebaseAuth.instance.currentUser?.uid == post.authorUid;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -120,7 +132,7 @@ class _PostCard extends StatelessWidget {
                   post.authorNickname,
                   style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.55)),
                 ),
-                if (FirebaseAuth.instance.currentUser?.uid == post.authorUid) ...[
+                if (isMine || isAdmin) ...[
                   const SizedBox(width: 4),
                   IconButton(
                     icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),

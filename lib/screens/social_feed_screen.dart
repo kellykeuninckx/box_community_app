@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/social_post.dart';
 import '../models/social_comment.dart';
+import '../models/user_profile.dart';
 import '../services/social_service.dart';
+import '../services/user_profile_service.dart';
 import '../widgets/logo_pattern_background.dart';
 
 const _cream = Color(0xFFF0EDC8);
@@ -28,35 +30,42 @@ class SocialFeedScreen extends StatelessWidget {
       body: Stack(
         children: [
           const LogoPatternBackground(),
-          StreamBuilder<List<SocialPost>>(
-            stream: service.posts,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          StreamBuilder<UserProfile?>(
+            stream: UserProfileService().currentUserProfile,
+            builder: (context, profileSnapshot) {
+              final isAdmin = profileSnapshot.data?.isAdmin ?? false;
 
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text('Fout bij laden: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)),
-                );
-              }
+              return StreamBuilder<List<SocialPost>>(
+                stream: service.posts,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              final posts = snapshot.data ?? [];
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Fout bij laden: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)),
+                    );
+                  }
 
-              if (posts.isEmpty) {
-                return Center(
-                  child: Text(
-                    'Nog geen berichten.\nStel gerust een vraag of zeg hallo!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: _cream.withOpacity(0.6)),
-                  ),
-                );
-              }
+                  final posts = snapshot.data ?? [];
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: posts.length,
-                itemBuilder: (context, index) => _SocialCard(post: posts[index], service: service),
+                  if (posts.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Nog geen berichten.\nStel gerust een vraag of zeg hallo!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: _cream.withOpacity(0.6)),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: posts.length,
+                    itemBuilder: (context, index) => _SocialCard(post: posts[index], service: service, isAdmin: isAdmin),
+                  );
+                },
               );
             },
           ),
@@ -83,8 +92,9 @@ class SocialFeedScreen extends StatelessWidget {
 class _SocialCard extends StatefulWidget {
   final SocialPost post;
   final SocialService service;
+  final bool isAdmin;
 
-  const _SocialCard({required this.post, required this.service});
+  const _SocialCard({required this.post, required this.service, required this.isAdmin});
 
   @override
   State<_SocialCard> createState() => _SocialCardState();
@@ -131,7 +141,7 @@ class _SocialCardState extends State<_SocialCard> {
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _cream),
                   ),
                 ),
-                if (isMine)
+                if (isMine || widget.isAdmin)
                   IconButton(
                     icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),
                     padding: EdgeInsets.zero,
@@ -159,6 +169,7 @@ class _SocialCardState extends State<_SocialCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: comments.map((comment) => _CommentRow(
                           comment: comment,
+                          isAdmin: widget.isAdmin,
                           onDelete: () => widget.service.deleteComment(widget.post.id, comment.id),
                         )).toList(),
                   ),
@@ -228,9 +239,10 @@ class _SocialCardState extends State<_SocialCard> {
 
 class _CommentRow extends StatelessWidget {
   final SocialComment comment;
+  final bool isAdmin;
   final VoidCallback onDelete;
 
-  const _CommentRow({required this.comment, required this.onDelete});
+  const _CommentRow({required this.comment, required this.isAdmin, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +269,7 @@ class _CommentRow extends StatelessWidget {
               ),
             ),
           ),
-          if (isMine)
+          if (isMine || isAdmin)
             GestureDetector(
               onTap: onDelete,
               child: Icon(Icons.close, size: 14, color: _cream.withOpacity(0.4)),
