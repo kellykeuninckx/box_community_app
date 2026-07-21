@@ -14,6 +14,11 @@ class UserProfile {
   final bool isCoach;
   final bool isAdmin;
 
+  /// Meldingsvoorkeuren — allemaal standaard aan.
+  final bool notifyWallOfFameReactions;
+  final bool notifyKoffiehoekjeReactions;
+  final bool notifyNewsAndAgenda;
+
   UserProfile({
     required this.uid,
     required this.nickname,
@@ -22,6 +27,9 @@ class UserProfile {
     this.bodyweightKg,
     this.isCoach = false,
     this.isAdmin = false,
+    this.notifyWallOfFameReactions = true,
+    this.notifyKoffiehoekjeReactions = true,
+    this.notifyNewsAndAgenda = true,
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -34,6 +42,9 @@ class UserProfile {
       bodyweightKg: (data['bodyweightKg'] as num?)?.toDouble(),
       isCoach: data['isCoach'] ?? false,
       isAdmin: data['isAdmin'] ?? false,
+      notifyWallOfFameReactions: data['notifyWallOfFameReactions'] ?? true,
+      notifyKoffiehoekjeReactions: data['notifyKoffiehoekjeReactions'] ?? true,
+      notifyNewsAndAgenda: data['notifyNewsAndAgenda'] ?? true,
     );
   }
 

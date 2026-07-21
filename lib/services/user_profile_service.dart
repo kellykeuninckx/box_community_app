@@ -48,6 +48,24 @@ class UserProfileService {
     return UserProfile.fromFirestore(doc);
   }
 
+  Future<void> saveFcmToken(String token) async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    await _collection.doc(uid).set({
+      'fcmToken': token,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setNotificationPreference(String field, bool value) async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    await _collection.doc(uid).set({
+      field: value,
+    }, SetOptions(merge: true));
+  }
+
   /// Voor het tonen van iemand ánders nickname (bijvoorbeeld bij een Wall of Fame-post).
   Future<String> nicknameFor(String uid) async {
     final doc = await _collection.doc(uid).get();

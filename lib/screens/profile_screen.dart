@@ -265,6 +265,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
 
+                  const SizedBox(height: 16),
+
+                  // Meldingen-kaart
+                  _sectionCard(
+                    children: [
+                      Text('Meldingen', style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5), fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Reacties op mijn Wall of Fame-posts', style: TextStyle(fontSize: 13, color: _cream)),
+                        value: profile?.notifyWallOfFameReactions ?? true,
+                        activeColor: _red,
+                        onChanged: (value) => _profileService.setNotificationPreference('notifyWallOfFameReactions', value),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Reacties in het Koffiehoekje', style: TextStyle(fontSize: 13, color: _cream)),
+                        value: profile?.notifyKoffiehoekjeReactions ?? true,
+                        activeColor: _red,
+                        onChanged: (value) => _profileService.setNotificationPreference('notifyKoffiehoekjeReactions', value),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Nieuws & Agenda', style: TextStyle(fontSize: 13, color: _cream)),
+                        value: profile?.notifyNewsAndAgenda ?? true,
+                        activeColor: _red,
+                        onChanged: (value) => _profileService.setNotificationPreference('notifyNewsAndAgenda', value),
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 24),
 
                   OutlinedButton.icon(

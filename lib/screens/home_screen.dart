@@ -8,6 +8,7 @@ import 'photos_screen.dart';
 import 'profile_screen.dart';
 import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/logo_pattern_background.dart';
 
 class _Tile {
@@ -18,9 +19,14 @@ class _Tile {
   const _Tile({required this.icon, required this.label, required this.builder});
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   static final List<_Tile> _tiles = [
     _Tile(icon: Icons.campaign, label: 'Nieuws & Agenda', builder: (_) => const NewsAndAgendaScreen()),
     _Tile(icon: Icons.emoji_events, label: 'Wall of fame', builder: (_) => const WallOfFameScreen()),
@@ -29,6 +35,12 @@ class HomeScreen extends StatelessWidget {
     _Tile(icon: Icons.forum, label: 'Sociaal', builder: (_) => const SocialFeedScreen()),
     _Tile(icon: Icons.photo_library, label: 'Foto\'s', builder: (_) => const PhotosScreen()),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService().initialize();
+  }
 
   @override
   Widget build(BuildContext context) {
