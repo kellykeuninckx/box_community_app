@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _Tile(icon: Icons.emoji_events, label: 'Wall of fame', builder: (_) => const WallOfFameScreen()),
     _Tile(icon: Icons.fitness_center, label: 'Benchmark WODs', builder: (_) => const WodListScreen()),
     _Tile(icon: Icons.leaderboard, label: 'Lift leaderboard', builder: (_) => const LiftLeaderboardScreen()),
-    _Tile(icon: Icons.forum, label: 'Sociaal', builder: (_) => const SocialFeedScreen()),
+    _Tile(icon: Icons.forum, label: 'Koffiehoekje', builder: (_) => const SocialFeedScreen()),
     _Tile(icon: Icons.photo_library, label: 'Foto\'s', builder: (_) => const PhotosScreen()),
   ];
 

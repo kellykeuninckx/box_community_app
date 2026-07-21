@@ -22,10 +22,25 @@ class UserProfileService {
     final uid = _uid;
     if (uid == null) return;
 
-    await _collection.doc(uid).set({
-      'nickname': nickname,
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final existing = await _collection.doc(uid).get();
+
+    if (existing.exists) {
+      // Alleen de naam bijwerken — meldingsvoorkeuren die iemand al had
+      // ingesteld blijven ongemoeid.
+      await _collection.doc(uid).set({
+        'nickname': nickname,
+      }, SetOptions(merge: true));
+    } else {
+      // Eerste keer: naam + standaardwaarden voor meldingen in één keer zetten,
+      // zodat elk profiel deze velden altijd heeft (nodig voor de Cloud Functions).
+      await _collection.doc(uid).set({
+        'nickname': nickname,
+        'createdAt': FieldValue.serverTimestamp(),
+        'notifyWallOfFameReactions': true,
+        'notifyKoffiehoekjeReactions': true,
+        'notifyNewsAndAgenda': true,
+      });
+    }
   }
 
   /// Eenmalig te vragen, alléén wanneer iemand voor het eerst een lift-PR invult.
