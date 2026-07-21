@@ -56,13 +56,12 @@ class DefaultFirebaseOptions {
     projectId: 'the-box-community',
     storageBucket: 'the-box-community.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyD5AcrCNbdylCDxdGCeLHuSjvn9yHV5Y08',
-    appId: '1:858599273270:ios:9489470ac5d5eeac93f997',
+    appId: '1:858599273270:ios:913bd73bdf2438a393f997',
     messagingSenderId: '858599273270',
     projectId: 'the-box-community',
     storageBucket: 'the-box-community.firebasestorage.app',
-    iosBundleId: 'com.example.gymCommunityApp',
+    iosBundleId: 'nl.theboxleerdam.app',
   );
 }
