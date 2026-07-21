@@ -26,7 +26,7 @@ class HomeScreen extends StatelessWidget {
     _Tile(icon: Icons.emoji_events, label: 'Wall of fame', builder: (_) => const WallOfFameScreen()),
     _Tile(icon: Icons.fitness_center, label: 'Benchmark WODs', builder: (_) => const WodListScreen()),
     _Tile(icon: Icons.leaderboard, label: 'Lift leaderboard', builder: (_) => const LiftLeaderboardScreen()),
-    _Tile(icon: Icons.forum, label: 'Koffiehoekje', builder: (_) => const SocialFeedScreen()),
+    _Tile(icon: Icons.forum, label: 'Sociaal', builder: (_) => const SocialFeedScreen()),
     _Tile(icon: Icons.photo_library, label: 'Foto\'s', builder: (_) => const PhotosScreen()),
   ];
 
@@ -43,11 +43,11 @@ class HomeScreen extends StatelessWidget {
                 // Logo (transparante achtergrond) rust direct op het navy canvas.
                 // Profiel-icoon staat nu los, rechtsboven — niet meer over het logo heen.
                 SizedBox(
-                  height: 150,
+                  height: 170,
                   child: Stack(
                     children: [
                       Center(
-                        child: Image.asset('assets/images/logo_full.png', height: 130),
+                        child: Image.asset('assets/images/logo_full.png', height: 150),
                       ),
                       Positioned(
                         top: 4,

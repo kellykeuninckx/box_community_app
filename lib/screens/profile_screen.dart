@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/user_profile_service.dart';
 import '../services/wall_of_fame_service.dart';
+import '../services/account_deletion_service.dart';
 import '../models/user_profile.dart';
 import '../widgets/logo_pattern_background.dart';
 
@@ -281,12 +282,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
+
+                  const SizedBox(height: 12),
+
+                  TextButton.icon(
+                    onPressed: () => _showDeleteAccountDialog(context),
+                    icon: Icon(Icons.delete_forever, color: _cream.withOpacity(0.4), size: 18),
+                    label: Text(
+                      'Account verwijderen',
+                      style: TextStyle(color: _cream.withOpacity(0.4), fontSize: 13),
+                    ),
+                  ),
                 ],
               );
             },
           ),
         ],
       ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    final passwordController = TextEditingController();
+    String? errorMessage;
+    bool isDeleting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: _cardColor,
+              title: const Text('Account verwijderen?', style: TextStyle(color: _cream)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dit verwijdert je account, profiel, geplaatste berichten, foto\'s, scores en reacties definitief. Dit kan niet ongedaan gemaakt worden.',
+                    style: TextStyle(color: _cream.withOpacity(0.7), fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Vul ter bevestiging je wachtwoord in:',
+                    style: TextStyle(color: _cream.withOpacity(0.7), fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    style: const TextStyle(color: _cream),
+                    decoration: InputDecoration(
+                      labelText: 'Wachtwoord',
+                      labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.of(dialogContext).pop(),
+                  child: Text('Annuleer', style: TextStyle(color: _cream.withOpacity(0.7))),
+                ),
+                TextButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          if (passwordController.text.isEmpty) {
+                            setDialogState(() => errorMessage = 'Vul je wachtwoord in.');
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isDeleting = true;
+                            errorMessage = null;
+                          });
+
+                          try {
+                            await AccountDeletionService().deleteMyAccount(password: passwordController.text);
+                            if (context.mounted) {
+                              Navigator.of(dialogContext).pop();
+                              Navigator.of(context).popUntil((route) => route.isFirst);
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isDeleting = false;
+                              errorMessage = 'Verwijderen is niet gelukt. Klopt je wachtwoord?';
+                            });
+                          }
+                        },
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: _red),
+                        )
+                      : const Text('Verwijder definitief', style: TextStyle(color: _red)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
