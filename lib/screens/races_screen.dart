@@ -1,46 +1,26 @@
 import 'package:flutter/material.dart';
-import '../models/lift_pr.dart';
-import '../models/weight_class.dart';
-import '../services/lift_pr_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/race_result.dart';
+import '../services/race_result_service.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/logo_pattern_background.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
-const _navy = Color(0xFF0F1C3F);
 const _chipBg = Color(0x14F0EDC8); // cream @ ~8% opacity
 
-class LiftLeaderboardScreen extends StatelessWidget {
-  const LiftLeaderboardScreen({super.key});
+/// Losgetrokken van een eigen Scaffold zodat dit ingebed kan worden als tab
+/// binnen de Leaderboards-tegel (zie leaderboards_screen.dart).
+class RacesBody extends StatefulWidget {
+  const RacesBody({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lift leaderboard'),
-        backgroundColor: _navy,
-        foregroundColor: _cream,
-      ),
-      backgroundColor: _navy,
-      body: const LiftLeaderboardBody(),
-    );
-  }
+  State<RacesBody> createState() => _RacesBodyState();
 }
 
-/// Losgetrokken van de Scaffold/AppBar zodat dit ook ingebed kan worden als
-/// tab binnen de Leaderboards-tegel (zie leaderboards_screen.dart), zonder dat
-/// LiftLeaderboardScreen zelf als losstaand scherm hoeft te veranderen.
-class LiftLeaderboardBody extends StatefulWidget {
-  const LiftLeaderboardBody({super.key});
-
-  @override
-  State<LiftLeaderboardBody> createState() => _LiftLeaderboardBodyState();
-}
-
-class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
-  LiftType _selectedLift = LiftType.deadlift;
-  final _service = LiftPrService();
+class _RacesBodyState extends State<RacesBody> {
+  RaceType _selectedType = RaceType.hyrox;
+  final _service = RaceResultService();
 
   @override
   Widget build(BuildContext context) {
@@ -53,24 +33,24 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
               padding: const EdgeInsets.all(12),
               child: Wrap(
                 spacing: 8,
-                children: LiftType.values.map((lift) {
-                  final isSelected = lift == _selectedLift;
+                children: RaceType.values.map((type) {
+                  final isSelected = type == _selectedType;
                   return ChoiceChip(
-                    label: Text(lift.label),
+                    label: Text(type.label),
                     selected: isSelected,
                     selectedColor: _red,
                     backgroundColor: _chipBg,
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : _cream,
                     ),
-                    onSelected: (_) => setState(() => _selectedLift = lift),
+                    onSelected: (_) => setState(() => _selectedType = type),
                   );
                 }).toList(),
               ),
             ),
             Expanded(
-              child: StreamBuilder<List<LiftPr>>(
-                stream: _service.prsFor(_selectedLift.name),
+              child: StreamBuilder<List<RaceResult>>(
+                stream: _service.resultsFor(_selectedType),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -92,20 +72,20 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
                     );
                   }
 
-                  final prs = snapshot.data ?? [];
+                  final results = snapshot.data ?? [];
 
-                  if (prs.isEmpty) {
+                  if (results.isEmpty) {
                     return Center(
                       child: Text(
-                        'Nog geen PR\'s ingevuld.\nWees de eerste!',
+                        'Nog geen tijden ingevuld.\nWees de eerste!',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: _cream.withOpacity(0.6)),
                       ),
                     );
                   }
 
-                  final women = prs.where((p) => p.gender == 'V').toList();
-                  final men = prs.where((p) => p.gender == 'M').toList();
+                  final women = results.where((r) => r.gender == 'V').toList();
+                  final men = results.where((r) => r.gender == 'M').toList();
 
                   return ListView(
                     padding: const EdgeInsets.symmetric(
@@ -127,7 +107,7 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
               child: ElevatedButton.icon(
                 onPressed: () => _showSubmitSheet(context),
                 icon: const Icon(Icons.add),
-                label: const Text('PR invullen'),
+                label: const Text('Tijd invullen'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _red,
                   foregroundColor: Colors.white,
@@ -142,15 +122,16 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
     );
   }
 
+  /// Solo en doubles worden apart gehouden — een duo-tijd is niet eerlijk te
+  /// vergelijken met een solo-tijd.
   List<Widget> _genderSection(
     BuildContext context,
     String title,
-    List<LiftPr> prs,
+    List<RaceResult> results,
   ) {
-    final grouped = <String, List<LiftPr>>{};
-    for (final pr in prs) {
-      final weightClass = WeightClass.forWeight(pr.gender, pr.bodyweightKg);
-      grouped.putIfAbsent(weightClass, () => []).add(pr);
+    final grouped = <RaceMode, List<RaceResult>>{};
+    for (final result in results) {
+      grouped.putIfAbsent(result.mode, () => []).add(result);
     }
 
     final widgets = <Widget>[
@@ -167,12 +148,15 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
       ),
     ];
 
-    for (final entry in grouped.entries) {
+    for (final mode in RaceMode.values) {
+      final modeResults = grouped[mode];
+      if (modeResults == null || modeResults.isEmpty) continue;
+
       widgets.add(
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Text(
-            entry.key,
+            mode.label,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -182,25 +166,37 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
         ),
       );
 
-      final sorted = List<LiftPr>.from(entry.value)
-        ..sort((a, b) => b.weightKg.compareTo(a.weightKg));
+      final sorted = List<RaceResult>.from(modeResults)
+        ..sort((a, b) => a.timeSeconds.compareTo(b.timeSeconds));
 
       final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
       widgets.addAll(
-        sorted.map((pr) {
-          final isMine = currentUid != null && currentUid == pr.uid;
+        sorted.map((result) {
+          final isMine = currentUid != null && currentUid == result.uid;
 
           return Card(
             margin: const EdgeInsets.only(bottom: 6),
             child: ListTile(
               dense: true,
-              title: Text(pr.nickname, style: const TextStyle(color: _cream)),
+              title: Text(
+                result.nickname,
+                style: const TextStyle(color: _cream),
+              ),
+              subtitle: result.note != null && result.note!.isNotEmpty
+                  ? Text(
+                      result.note!,
+                      style: TextStyle(
+                        color: _cream.withOpacity(0.5),
+                        fontSize: 12,
+                      ),
+                    )
+                  : null,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${pr.weightKg.toStringAsFixed(1)} kg',
+                    result.formattedTime,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       color: _cream,
@@ -213,7 +209,7 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
                         size: 20,
                         color: _cream.withOpacity(0.5),
                       ),
-                      onPressed: () => _confirmDelete(context, pr),
+                      onPressed: () => _confirmDelete(context, result),
                     ),
                 ],
               ),
@@ -226,14 +222,14 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
     return widgets;
   }
 
-  void _confirmDelete(BuildContext context, LiftPr pr) {
+  void _confirmDelete(BuildContext context, RaceResult result) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF1B2E5C),
-        title: const Text('PR verwijderen?', style: TextStyle(color: _cream)),
+        title: const Text('Tijd verwijderen?', style: TextStyle(color: _cream)),
         content: Text(
-          'Dit verwijdert jouw ${pr.lift}-PR. Dit kan niet ongedaan gemaakt worden.',
+          'Dit verwijdert jouw ${result.raceType.label}-tijd van ${result.formattedTime}. Dit kan niet ongedaan gemaakt worden.',
           style: TextStyle(color: _cream.withOpacity(0.7)),
         ),
         actions: [
@@ -246,7 +242,7 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
           ),
           TextButton(
             onPressed: () {
-              _service.deletePr('${pr.uid}_${pr.lift}');
+              _service.deleteResult(result.id);
               Navigator.of(context).pop();
             },
             child: const Text('Verwijder', style: TextStyle(color: _red)),
@@ -262,37 +258,39 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
       isScrollControlled: true,
       backgroundColor: const Color(0xFF16264B),
       builder: (_) =>
-          _SubmitPrSheet(service: _service, initialLift: _selectedLift),
+          _SubmitRaceSheet(service: _service, initialType: _selectedType),
     );
   }
 }
 
-class _SubmitPrSheet extends StatefulWidget {
-  final LiftPrService service;
-  final LiftType initialLift;
+class _SubmitRaceSheet extends StatefulWidget {
+  final RaceResultService service;
+  final RaceType initialType;
 
-  const _SubmitPrSheet({required this.service, required this.initialLift});
+  const _SubmitRaceSheet({required this.service, required this.initialType});
 
   @override
-  State<_SubmitPrSheet> createState() => _SubmitPrSheetState();
+  State<_SubmitRaceSheet> createState() => _SubmitRaceSheetState();
 }
 
-class _SubmitPrSheetState extends State<_SubmitPrSheet> {
+class _SubmitRaceSheetState extends State<_SubmitRaceSheet> {
   final _profileService = UserProfileService();
-  final _weightController = TextEditingController();
-  final _bodyweightController = TextEditingController();
+  final _minutesController = TextEditingController();
+  final _secondsController = TextEditingController();
+  final _noteController = TextEditingController();
 
-  late LiftType _selectedLift;
+  late RaceType _selectedType;
+  RaceMode _selectedMode = RaceMode.solo;
   String _gender = 'M';
   bool _isSubmitting = false;
   bool _isLoadingProfile = true;
-  bool _needsWeightClassInfo = false;
+  bool _needsGender = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _selectedLift = widget.initialLift;
+    _selectedType = widget.initialType;
     _loadProfile();
   }
 
@@ -301,46 +299,56 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
     if (!mounted) return;
 
     setState(() {
-      _needsWeightClassInfo = profile == null || !profile.hasWeightClassInfo;
+      _needsGender = profile == null || profile.gender == null;
       _isLoadingProfile = false;
     });
   }
 
   @override
   void dispose() {
-    _weightController.dispose();
-    _bodyweightController.dispose();
+    _minutesController.dispose();
+    _secondsController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     setState(() => _errorMessage = null);
 
-    final weight = double.tryParse(_weightController.text.replaceAll(',', '.'));
-    if (weight == null || weight <= 0) {
-      setState(() => _errorMessage = 'Vul een geldig gewicht in voor je lift.');
+    final minutes = int.tryParse(_minutesController.text) ?? 0;
+    final seconds = int.tryParse(_secondsController.text) ?? 0;
+
+    if (seconds < 0 || seconds > 59) {
+      setState(() => _errorMessage = 'Seconden moet tussen 0 en 59 liggen.');
       return;
     }
 
-    if (_needsWeightClassInfo) {
-      final bodyweight = double.tryParse(
-        _bodyweightController.text.replaceAll(',', '.'),
-      );
-      if (bodyweight == null || bodyweight <= 0) {
-        setState(() => _errorMessage = 'Vul je lichaamsgewicht in.');
-        return;
-      }
-
-      setState(() => _isSubmitting = true);
-      await _profileService.setWeightClassInfo(
-        gender: _gender,
-        bodyweightKg: bodyweight,
-      );
-    } else {
-      setState(() => _isSubmitting = true);
+    final totalSeconds = minutes * 60 + seconds;
+    if (totalSeconds <= 0) {
+      setState(() => _errorMessage = 'Vul een geldige tijd in.');
+      return;
     }
 
-    await widget.service.submitPr(lift: _selectedLift.name, weightKg: weight);
+    final note = _noteController.text.trim();
+    if (_selectedMode == RaceMode.doubles && note.isEmpty) {
+      setState(
+        () => _errorMessage = 'Vul bij Doubles in met wie je het gedaan hebt.',
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    if (_needsGender) {
+      await _profileService.setGender(_gender);
+    }
+
+    await widget.service.submitResult(
+      raceType: _selectedType,
+      mode: _selectedMode,
+      timeSeconds: totalSeconds,
+      note: note.isEmpty ? null : note,
+    );
 
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -367,7 +375,7 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Nieuwe PR invullen',
+            'Nieuwe tijd invullen',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -378,39 +386,97 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
 
           Wrap(
             spacing: 8,
-            children: LiftType.values.map((lift) {
-              final isSelected = lift == _selectedLift;
+            children: RaceType.values.map((type) {
+              final isSelected = type == _selectedType;
               return ChoiceChip(
-                label: Text(lift.label),
+                label: Text(type.label),
                 selected: isSelected,
                 selectedColor: _red,
                 backgroundColor: _chipBg,
                 labelStyle: TextStyle(
                   color: isSelected ? Colors.white : _cream,
                 ),
-                onSelected: (_) => setState(() => _selectedLift = lift),
+                onSelected: (_) => setState(() => _selectedType = type),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+
+          Wrap(
+            spacing: 8,
+            children: RaceMode.values.map((mode) {
+              final isSelected = mode == _selectedMode;
+              return ChoiceChip(
+                label: Text(mode.label),
+                selected: isSelected,
+                selectedColor: _red,
+                backgroundColor: _chipBg,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : _cream,
+                ),
+                onSelected: (_) => setState(() => _selectedMode = mode),
               );
             }).toList(),
           ),
           const SizedBox(height: 16),
 
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _minutesController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: _cream),
+                  decoration: InputDecoration(
+                    labelText: 'Minuten',
+                    labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _secondsController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: _cream),
+                  decoration: InputDecoration(
+                    labelText: 'Seconden',
+                    labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
           TextField(
-            controller: _weightController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            controller: _noteController,
             style: const TextStyle(color: _cream),
             decoration: InputDecoration(
-              labelText: 'Gewicht (kg)',
+              labelText: _selectedMode == RaceMode.doubles
+                  ? 'Met wie (verplicht)'
+                  : 'Opmerking (optioneel)',
+              hintText: _selectedMode == RaceMode.doubles
+                  ? 'Bijvoorbeeld: met Jan'
+                  : 'Bijvoorbeeld: Hyrox Utrecht',
               labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
+              hintStyle: TextStyle(color: _cream.withOpacity(0.3)),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
           ),
 
-          if (_needsWeightClassInfo) ...[
+          if (_needsGender) ...[
             const SizedBox(height: 16),
             Text(
-              'Voor de gewichtsklasse-indeling hebben we dit eenmalig nodig:',
+              'Voor de man/vrouw-indeling hebben we dit eenmalig nodig:',
               style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.6)),
             ),
             const SizedBox(height: 8),
@@ -442,21 +508,6 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _bodyweightController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: const TextStyle(color: _cream),
-              decoration: InputDecoration(
-                labelText: 'Lichaamsgewicht (kg)',
-                labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
             ),
           ],
 

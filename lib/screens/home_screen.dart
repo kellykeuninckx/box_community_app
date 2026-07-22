@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'news_and_agenda_screen.dart';
 import 'wall_of_fame_screen.dart';
 import 'wod_list_screen.dart';
-import 'lift_leaderboard_screen.dart';
+import 'leaderboards_screen.dart';
 import 'social_feed_screen.dart';
 import 'photos_screen.dart';
 import 'profile_screen.dart';
@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _Tile(icon: Icons.campaign, label: 'Nieuws & Agenda', builder: (_) => const NewsAndAgendaScreen()),
     _Tile(icon: Icons.emoji_events, label: 'Wall of fame', builder: (_) => const WallOfFameScreen()),
     _Tile(icon: Icons.fitness_center, label: 'Benchmark WODs', builder: (_) => const WodListScreen()),
-    _Tile(icon: Icons.leaderboard, label: 'Lift leaderboard', builder: (_) => const LiftLeaderboardScreen()),
+    _Tile(icon: Icons.leaderboard, label: 'Leaderboards', builder: (_) => const LeaderboardsScreen()),
     _Tile(icon: Icons.forum, label: 'Koffiehoekje', builder: (_) => const SocialFeedScreen()),
     _Tile(icon: Icons.photo_library, label: 'Foto\'s', builder: (_) => const PhotosScreen()),
   ];

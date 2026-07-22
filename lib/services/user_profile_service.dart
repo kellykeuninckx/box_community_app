@@ -43,6 +43,17 @@ class UserProfileService {
     }
   }
 
+  /// Voor Races is alleen geslacht nodig (geen gewichtsklasse) — apart houden
+  /// van setWeightClassInfo zodat we niet onnodig om lichaamsgewicht vragen.
+  Future<void> setGender(String gender) async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    await _collection.doc(uid).set({
+      'gender': gender,
+    }, SetOptions(merge: true));
+  }
+
   /// Eenmalig te vragen, alléén wanneer iemand voor het eerst een lift-PR invult.
   Future<void> setWeightClassInfo({
     required String gender,

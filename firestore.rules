@@ -1,0 +1,126 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // isAdmin/isCoach staan alleen op user_profiles en worden uitsluitend
+    // handmatig in de Console gezet — nooit via de app zelf.
+    function myProfile() {
+      return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myProfile().get('isAdmin', false) == true;
+    }
+
+    function isCoach() {
+      return isSignedIn() && myProfile().get('isCoach', false) == true;
+    }
+
+    // ---- user_profiles ----
+    match /user_profiles/{uid} {
+      allow read: if isSignedIn();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.get('isAdmin', false) == false
+        && request.resource.data.get('isCoach', false) == false;
+
+      // Alles behalve isAdmin/isCoach mag de eigenaar zelf aanpassen
+      // (nickname, gender, bodyweightKg, fcmToken, notify*-voorkeuren, ...).
+      allow update: if isOwner(uid)
+        && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)
+        && request.resource.data.get('isCoach', false) == resource.data.get('isCoach', false);
+
+      allow delete: if isOwner(uid);
+    }
+
+    // ---- lift_prs ---- (doc id: {uid}_{lift}, overschreven bij een nieuwe PR)
+    match /lift_prs/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---- race_results ---- (elke inzending een eigen document, geschiedenis blijft staan)
+    match /race_results/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---- wod_scores ----
+    match /wod_scores/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---- photo_posts ---- (alleen coaches mogen posten)
+    match /photo_posts/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isCoach() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // ---- news_posts ---- (alleen admins mogen posten/bewerken)
+    match /news_posts/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isSignedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+
+    // ---- agenda_events ---- (alleen admins mogen posten/bewerken)
+    match /agenda_events/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isSignedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+
+    // ---- wall_of_fame_posts ----
+    match /wall_of_fame_posts/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorUid == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      // Reageren: iedereen mag reageren, maar alleen de eigen sleutel in
+      // reactionsByUser aanpassen — nooit andermans reactie wijzigen.
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsByUser'])
+        && resource.data.get('reactionsByUser', {})
+             .diff(request.resource.data.get('reactionsByUser', {}))
+             .affectedKeys()
+             .hasOnly([request.auth.uid]);
+    }
+
+    // ---- social_posts (Koffiehoekje) + comments ----
+    match /social_posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.authorUid == request.auth.uid;
+        allow update: if false;
+        allow delete: if isSignedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      }
+    }
+  }
+}
