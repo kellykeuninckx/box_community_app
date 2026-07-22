@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Box — Nieuws plaatsen</title>
+  <style>
+    :root {
+      --cream: #f0edc8;
+      --red: #8b1e2b;
+      --navy: #0f1c3f;
+      --card: #1b2e5c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--navy);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--cream);
+      padding: 20px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 420px;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 20px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: rgba(240, 237, 200, 0.7);
+      margin-bottom: 6px;
+    }
+    input, textarea {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(240, 237, 200, 0.25);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--cream);
+      font-size: 14px;
+      margin-bottom: 16px;
+      font-family: inherit;
+    }
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+    button {
+      width: 100%;
+      background: var(--red);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .error {
+      color: #ff8a80;
+      font-size: 13px;
+      margin: -8px 0 16px;
+    }
+    .success {
+      color: #a5d6a7;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    .hint {
+      font-size: 12px;
+      color: rgba(240, 237, 200, 0.5);
+      margin-top: 16px;
+      text-align: center;
+    }
+    .hidden { display: none; }
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .signout {
+      background: none;
+      width: auto;
+      padding: 0;
+      color: rgba(240, 237, 200, 0.5);
+      font-size: 12px;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card" id="login-card">
+    <h1>Inloggen</h1>
+    <label for="email">E-mail</label>
+    <input id="email" type="email" autocomplete="username" />
+    <label for="password">Wachtwoord</label>
+    <input id="password" type="password" autocomplete="current-password" />
+    <div class="error hidden" id="login-error"></div>
+    <button id="login-btn">Inloggen</button>
+    <div class="hint">Zelfde account als in de app.</div>
+  </div>
+
+  <div class="card hidden" id="form-card">
+    <div class="top-row">
+      <h1 style="margin:0">Nieuw bericht</h1>
+      <button class="signout" id="signout-btn">uitloggen</button>
+    </div>
+    <label for="title">Titel</label>
+    <input id="title" type="text" />
+    <label for="body">Bericht</label>
+    <textarea id="body"></textarea>
+    <div class="error hidden" id="form-error"></div>
+    <div class="success hidden" id="form-success">Geplaatst! Staat meteen in de app.</div>
+    <button id="submit-btn">Plaatsen</button>
+  </div>
+
+  <div class="card hidden" id="not-admin-card">
+    <h1>Geen toegang</h1>
+    <p style="font-size:14px">Dit account heeft geen adminrechten in de app.</p>
+    <button class="signout" id="signout-btn-2">uitloggen</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut,
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      collection,
+      addDoc,
+      serverTimestamp,
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCoVSTpbSUifdV2mKH2uZKlEsjBKn1l4_I",
+      authDomain: "the-box-community.firebaseapp.com",
+      projectId: "the-box-community",
+      storageBucket: "the-box-community.firebasestorage.app",
+      messagingSenderId: "858599273270",
+      appId: "1:858599273270:web:3c58d9edaba50e1993f997",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const loginCard = document.getElementById("login-card");
+    const formCard = document.getElementById("form-card");
+    const notAdminCard = document.getElementById("not-admin-card");
+
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const loginBtn = document.getElementById("login-btn");
+    const loginError = document.getElementById("login-error");
+
+    const titleInput = document.getElementById("title");
+    const bodyInput = document.getElementById("body");
+    const submitBtn = document.getElementById("submit-btn");
+    const formError = document.getElementById("form-error");
+    const formSuccess = document.getElementById("form-success");
+
+    function showOnly(card) {
+      [loginCard, formCard, notAdminCard].forEach((c) => c.classList.add("hidden"));
+      card.classList.remove("hidden");
+    }
+
+    loginBtn.addEventListener("click", async () => {
+      loginError.classList.add("hidden");
+      loginBtn.disabled = true;
+      try {
+        await signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
+      } catch (err) {
+        loginError.textContent = "Inloggen mislukt: controleer e-mail en wachtwoord.";
+        loginError.classList.remove("hidden");
+      } finally {
+        loginBtn.disabled = false;
+      }
+    });
+
+    [document.getElementById("signout-btn"), document.getElementById("signout-btn-2")].forEach((btn) => {
+      btn.addEventListener("click", () => signOut(auth));
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        showOnly(loginCard);
+        return;
+      }
+
+      const profileSnap = await getDoc(doc(db, "user_profiles", user.uid));
+      const isAdmin = profileSnap.exists() && profileSnap.data().isAdmin === true;
+
+      if (!isAdmin) {
+        showOnly(notAdminCard);
+        return;
+      }
+
+      showOnly(formCard);
+    });
+
+    submitBtn.addEventListener("click", async () => {
+      formError.classList.add("hidden");
+      formSuccess.classList.add("hidden");
+
+      const title = titleInput.value.trim();
+      const body = bodyInput.value.trim();
+
+      if (!title || !body) {
+        formError.textContent = "Vul zowel titel als bericht in.";
+        formError.classList.remove("hidden");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      try {
+        const user = auth.currentUser;
+        const profileSnap = await getDoc(doc(db, "user_profiles", user.uid));
+        const nickname = profileSnap.exists() ? profileSnap.data().nickname || "" : "";
+
+        await addDoc(collection(db, "news_posts"), {
+          authorUid: user.uid,
+          authorNickname: nickname,
+          title,
+          body,
+          createdAt: serverTimestamp(),
+        });
+
+        titleInput.value = "";
+        bodyInput.value = "";
+        formSuccess.classList.remove("hidden");
+      } catch (err) {
+        formError.textContent = "Plaatsen mislukt: " + err.message;
+        formError.classList.remove("hidden");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
