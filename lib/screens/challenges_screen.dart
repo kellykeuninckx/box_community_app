@@ -245,7 +245,17 @@ class _ActiveChallenge extends StatelessWidget {
                 );
               }
 
-              final results = snapshot.data ?? [];
+              final allResults = snapshot.data ?? [];
+
+              // De query staat al oplopend op normalizedScore, dus de eerste
+              // keer dat iemands uid voorbij komt is meteen zijn beste poging.
+              // Latere (mindere) pogingen van diezelfde persoon slaan we hier
+              // over — ze blijven gewoon bewaard, alleen niet los getoond.
+              final seenUids = <String>{};
+              final results = <ChallengeResult>[
+                for (final result in allResults)
+                  if (seenUids.add(result.uid)) result,
+              ];
 
               if (results.isEmpty) {
                 return Center(

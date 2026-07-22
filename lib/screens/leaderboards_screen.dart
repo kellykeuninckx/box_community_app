@@ -59,6 +59,10 @@ class _LeaderboardsScreenState extends State<LeaderboardsScreen> {
                       ? Colors.white
                       : _cream;
                 }),
+                textStyle: WidgetStateProperty.all(
+                  const TextStyle(fontSize: 12),
+                ),
+                visualDensity: VisualDensity.compact,
               ),
             ),
           ),
