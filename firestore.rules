@@ -60,6 +60,22 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
 
+    // ---- challenges ---- (alleen admins mogen aanmaken; geen edit/delete in de app)
+    match /challenges/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ---- challenge_results ---- (elke inzending een eigen document)
+    match /challenge_results/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // ---- wod_scores ----
     match /wod_scores/{docId} {
       allow read: if isSignedIn();
