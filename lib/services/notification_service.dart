@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import '../main.dart';
+import '../screens/wall_of_fame_screen.dart';
 import 'user_profile_service.dart';
 
 class NotificationService {
@@ -61,5 +64,28 @@ class NotificationService {
       print('[Meldingen] Token ververst: $newToken');
       _profileService.saveFcmToken(newToken);
     });
+
+    _listenForNotificationTaps();
+  }
+
+  /// Navigeert naar de juiste plek in de app wanneer een gebruiker op een
+  /// melding tikt — zowel vanuit de achtergrond als vanuit een volledig
+  /// gesloten app (killed state).
+  void _listenForNotificationTaps() {
+    _messaging.getInitialMessage().then(_handleNotificationTap);
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+  }
+
+  void _handleNotificationTap(RemoteMessage? message) {
+    if (message == null) return;
+
+    final postId = message.data['postId'];
+    if (message.data['type'] == 'wall_of_fame_post' && postId != null) {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => WallOfFameScreen(initialPostId: postId),
+        ),
+      );
+    }
   }
 }

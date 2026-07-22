@@ -3,11 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
 
+/// Globale navigator-toegang zodat de notification service (buiten de
+/// widget-boom) kan navigeren naar een specifieke post na een tik op een melding.
+final navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const GymCommunityApp());
 }
 
@@ -17,6 +19,7 @@ class GymCommunityApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Sportschool Community',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -29,10 +32,7 @@ class GymCommunityApp extends StatelessWidget {
         ),
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFF0F1C3F),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF16264B),
-          elevation: 0,
-        ),
+        cardTheme: CardThemeData(color: const Color(0xFF16264B), elevation: 0),
       ),
       home: const AuthGate(),
     );

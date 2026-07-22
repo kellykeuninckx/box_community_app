@@ -11,7 +11,7 @@ const messaging = getMessaging();
  * Stuurt een melding naar één specifieke gebruiker, maar alleen als ze een
  * token hebben en de betreffende voorkeur niet hebben uitgezet.
  */
-async function sendToUser(uid, preferenceField, title, body) {
+async function sendToUser(uid, preferenceField, title, body, data) {
   const profileDoc = await db.collection("user_profiles").doc(uid).get();
 
   if (!profileDoc.exists) {
@@ -37,6 +37,7 @@ async function sendToUser(uid, preferenceField, title, body) {
     await messaging.send({
       token,
       notification: {title, body},
+      ...(data ? {data} : {}),
     });
     console.log(`[sendToUser] Melding succesvol verstuurd naar uid ${uid}: "${title}"`);
   } catch (error) {
@@ -77,6 +78,7 @@ async function notifyAllForNewsAndAgenda(title, body) {
 
 // 1. Reactie (emoji) op een Wall of Fame-post
 exports.onWallOfFameReaction = onDocumentUpdated("wall_of_fame_posts/{postId}", async (event) => {
+  const postId = event.params.postId;
   const before = event.data.before.data();
   const after = event.data.after.data();
 
@@ -115,6 +117,7 @@ exports.onWallOfFameReaction = onDocumentUpdated("wall_of_fame_posts/{postId}", 
       "notifyWallOfFameReactions",
       "Nieuwe reactie op je Wall of Fame-post",
       `${reactorName} reageerde met ${emoji}`,
+      {type: "wall_of_fame_post", postId},
   );
 });
 

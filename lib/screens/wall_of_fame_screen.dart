@@ -11,13 +11,57 @@ const _red = Color(0xFF8B1E2B);
 const _navy = Color(0xFF0F1C3F);
 const _cardColor = Color(0xFF1B2E5C);
 
-class WallOfFameScreen extends StatelessWidget {
-  const WallOfFameScreen({super.key});
+class WallOfFameScreen extends StatefulWidget {
+  /// Wanneer gezet (bijv. vanuit een tik op een melding), scrollt het scherm
+  /// automatisch naar deze post zodra de lijst geladen is en licht 'm even op.
+  final String? initialPostId;
+
+  const WallOfFameScreen({super.key, this.initialPostId});
+
+  @override
+  State<WallOfFameScreen> createState() => _WallOfFameScreenState();
+}
+
+class _WallOfFameScreenState extends State<WallOfFameScreen> {
+  final _service = WallOfFameService();
+  final _postKeys = <String, GlobalKey>{};
+
+  String? _highlightedPostId;
+  bool _didScrollToInitial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _highlightedPostId = widget.initialPostId;
+  }
+
+  GlobalKey _keyFor(String postId) =>
+      _postKeys.putIfAbsent(postId, () => GlobalKey());
+
+  void _scrollToInitialPostIfNeeded(List<WallOfFamePost> posts) {
+    if (_didScrollToInitial || widget.initialPostId == null) return;
+    if (!posts.any((post) => post.id == widget.initialPostId)) return;
+
+    _didScrollToInitial = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final targetContext = _postKeys[widget.initialPostId]?.currentContext;
+      if (targetContext != null) {
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 400),
+          alignment: 0.1,
+        );
+      }
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _highlightedPostId = null);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final service = WallOfFameService();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Wall of fame'),
@@ -34,7 +78,7 @@ class WallOfFameScreen extends StatelessWidget {
               final isAdmin = profileSnapshot.data?.isAdmin ?? false;
 
               return StreamBuilder<List<WallOfFamePost>>(
-                stream: service.posts,
+                stream: _service.posts,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -61,11 +105,20 @@ class WallOfFameScreen extends StatelessWidget {
                     );
                   }
 
+                  _scrollToInitialPostIfNeeded(posts);
+
                   return ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: posts.length,
                     itemBuilder: (context, index) {
-                      return _PostCard(post: posts[index], service: service, isAdmin: isAdmin);
+                      final post = posts[index];
+                      return _PostCard(
+                        key: _keyFor(post.id),
+                        post: post,
+                        service: _service,
+                        isAdmin: isAdmin,
+                        highlighted: post.id == _highlightedPostId,
+                      );
                     },
                   );
                 },
@@ -76,7 +129,7 @@ class WallOfFameScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: _red,
-        onPressed: () => _showNewPostSheet(context, service),
+        onPressed: () => _showNewPostSheet(context, _service),
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
@@ -96,85 +149,120 @@ class _PostCard extends StatelessWidget {
   final WallOfFamePost post;
   final WallOfFameService service;
   final bool isAdmin;
+  final bool highlighted;
 
-  const _PostCard({required this.post, required this.service, required this.isAdmin});
+  const _PostCard({
+    super.key,
+    required this.post,
+    required this.service,
+    required this.isAdmin,
+    this.highlighted = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isMine = FirebaseAuth.instance.currentUser?.uid == post.authorUid;
 
-    return Card(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _cream,
-                    borderRadius: BorderRadius.circular(6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: highlighted ? Border.all(color: _red, width: 2) : null,
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _cream,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      post.type,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _navy,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    post.type,
-                    style: const TextStyle(
+                  const Spacer(),
+                  Text(
+                    post.authorNickname,
+                    style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _navy,
+                      color: _cream.withOpacity(0.55),
                     ),
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  post.authorNickname,
-                  style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.55)),
-                ),
-                if (isMine || isAdmin) ...[
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _confirmDelete(context),
-                  ),
+                  if (isMine || isAdmin) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: _cream.withOpacity(0.5),
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _confirmDelete(context),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(post.text, style: const TextStyle(fontSize: 14, color: _cream)),
-            const SizedBox(height: 10),
-            Row(
-              children: post.reactionCounts.entries.map((entry) {
-                final emoji = entry.key;
-                final count = entry.value;
-                final uid = FirebaseAuth.instance.currentUser?.uid;
-                final isMine = uid != null && post.reactionFor(uid) == emoji;
+              ),
+              const SizedBox(height: 8),
+              Text(
+                post.text,
+                style: const TextStyle(fontSize: 14, color: _cream),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: post.reactionCounts.entries.map((entry) {
+                  final emoji = entry.key;
+                  final count = entry.value;
+                  final uid = FirebaseAuth.instance.currentUser?.uid;
+                  final isMine = uid != null && post.reactionFor(uid) == emoji;
 
-                return Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: InkWell(
-                    onTap: () => service.toggleReaction(post.id, emoji),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isMine ? _red.withOpacity(0.25) : Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: isMine ? Border.all(color: _red, width: 1) : null,
-                      ),
-                      child: Text(
-                        '$emoji $count',
-                        style: const TextStyle(fontSize: 13, color: _cream),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: InkWell(
+                      onTap: () => service.toggleReaction(post.id, emoji),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isMine
+                              ? _red.withOpacity(0.25)
+                              : Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(20),
+                          border: isMine
+                              ? Border.all(color: _red, width: 1)
+                              : null,
+                        ),
+                        child: Text(
+                          '$emoji $count',
+                          style: const TextStyle(fontSize: 13, color: _cream),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -193,7 +281,10 @@ class _PostCard extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Annuleer', style: TextStyle(color: _cream.withOpacity(0.7))),
+            child: Text(
+              'Annuleer',
+              style: TextStyle(color: _cream.withOpacity(0.7)),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -259,7 +350,11 @@ class _NewPostSheetState extends State<_NewPostSheet> {
         children: [
           const Text(
             'Nieuwe prestatie delen',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: _cream,
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -290,7 +385,10 @@ class _NewPostSheetState extends State<_NewPostSheet> {
               hintStyle: TextStyle(color: _cream.withOpacity(0.4)),
               filled: true,
               fillColor: Colors.white.withOpacity(0.06),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -306,7 +404,10 @@ class _NewPostSheetState extends State<_NewPostSheet> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Text('Delen'),
           ),

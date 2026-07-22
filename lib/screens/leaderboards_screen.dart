@@ -28,52 +28,54 @@ class _LeaderboardsScreenState extends State<LeaderboardsScreen> {
         foregroundColor: _cream,
       ),
       backgroundColor: _navy,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: SegmentedButton<_LeaderboardTab>(
-              segments: const [
-                ButtonSegment(
-                  value: _LeaderboardTab.lifts,
-                  label: Text('Lifts'),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SegmentedButton<_LeaderboardTab>(
+                segments: const [
+                  ButtonSegment(
+                    value: _LeaderboardTab.lifts,
+                    label: Text('Lifts'),
+                  ),
+                  ButtonSegment(
+                    value: _LeaderboardTab.races,
+                    label: Text('Races'),
+                  ),
+                  ButtonSegment(
+                    value: _LeaderboardTab.challenges,
+                    label: Text('Challenges'),
+                  ),
+                ],
+                selected: {_selected},
+                onSelectionChanged: (selection) =>
+                    setState(() => _selected = selection.first),
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    return states.contains(WidgetState.selected) ? _red : null;
+                  }),
+                  foregroundColor: WidgetStateProperty.resolveWith((states) {
+                    return states.contains(WidgetState.selected)
+                        ? Colors.white
+                        : _cream;
+                  }),
+                  textStyle: WidgetStateProperty.all(
+                    const TextStyle(fontSize: 12),
+                  ),
+                  visualDensity: VisualDensity.compact,
                 ),
-                ButtonSegment(
-                  value: _LeaderboardTab.races,
-                  label: Text('Races'),
-                ),
-                ButtonSegment(
-                  value: _LeaderboardTab.challenges,
-                  label: Text('Challenges'),
-                ),
-              ],
-              selected: {_selected},
-              onSelectionChanged: (selection) =>
-                  setState(() => _selected = selection.first),
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.resolveWith((states) {
-                  return states.contains(WidgetState.selected) ? _red : null;
-                }),
-                foregroundColor: WidgetStateProperty.resolveWith((states) {
-                  return states.contains(WidgetState.selected)
-                      ? Colors.white
-                      : _cream;
-                }),
-                textStyle: WidgetStateProperty.all(
-                  const TextStyle(fontSize: 12),
-                ),
-                visualDensity: VisualDensity.compact,
               ),
             ),
-          ),
-          Expanded(
-            child: switch (_selected) {
-              _LeaderboardTab.lifts => const LiftLeaderboardBody(),
-              _LeaderboardTab.races => const RacesBody(),
-              _LeaderboardTab.challenges => const ChallengesBody(),
-            },
-          ),
-        ],
+            Expanded(
+              child: switch (_selected) {
+                _LeaderboardTab.lifts => const LiftLeaderboardBody(),
+                _LeaderboardTab.races => const RacesBody(),
+                _LeaderboardTab.challenges => const ChallengesBody(),
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
