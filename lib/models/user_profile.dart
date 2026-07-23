@@ -19,6 +19,10 @@ class UserProfile {
   final bool notifyKoffiehoekjeReactions;
   final bool notifyNewsAndAgenda;
 
+  /// Of het welkomstbericht al getoond is — voorkomt dat het bij elke login
+  /// opnieuw verschijnt.
+  final bool hasSeenWelcome;
+
   UserProfile({
     required this.uid,
     required this.nickname,
@@ -30,6 +34,7 @@ class UserProfile {
     this.notifyWallOfFameReactions = true,
     this.notifyKoffiehoekjeReactions = true,
     this.notifyNewsAndAgenda = true,
+    this.hasSeenWelcome = false,
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -45,6 +50,7 @@ class UserProfile {
       notifyWallOfFameReactions: data['notifyWallOfFameReactions'] ?? true,
       notifyKoffiehoekjeReactions: data['notifyKoffiehoekjeReactions'] ?? true,
       notifyNewsAndAgenda: data['notifyNewsAndAgenda'] ?? true,
+      hasSeenWelcome: data['hasSeenWelcome'] ?? false,
     );
   }
 

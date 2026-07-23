@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'news_and_agenda_screen.dart';
 import 'wall_of_fame_screen.dart';
 import 'wod_list_screen.dart';
@@ -28,18 +29,60 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static final List<_Tile> _tiles = [
-    _Tile(icon: Icons.campaign, label: 'Nieuws & Agenda', builder: (_) => const NewsAndAgendaScreen()),
-    _Tile(icon: Icons.emoji_events, label: 'Wall of fame', builder: (_) => const WallOfFameScreen()),
-    _Tile(icon: Icons.fitness_center, label: 'Benchmark WODs', builder: (_) => const WodListScreen()),
-    _Tile(icon: Icons.leaderboard, label: 'Leaderboards', builder: (_) => const LeaderboardsScreen()),
-    _Tile(icon: Icons.forum, label: 'Koffiehoekje', builder: (_) => const SocialFeedScreen()),
-    _Tile(icon: Icons.photo_library, label: 'Foto\'s', builder: (_) => const PhotosScreen()),
+    _Tile(
+      icon: Icons.campaign,
+      label: 'Nieuws & Agenda',
+      builder: (_) => const NewsAndAgendaScreen(),
+    ),
+    _Tile(
+      icon: Icons.emoji_events,
+      label: 'Wall of fame',
+      builder: (_) => const WallOfFameScreen(),
+    ),
+    _Tile(
+      icon: Icons.fitness_center,
+      label: 'Benchmark WODs',
+      builder: (_) => const WodListScreen(),
+    ),
+    _Tile(
+      icon: Icons.leaderboard,
+      label: 'Leaderboards',
+      builder: (_) => const LeaderboardsScreen(),
+    ),
+    _Tile(
+      icon: Icons.forum,
+      label: 'Koffiehoekje',
+      builder: (_) => const SocialFeedScreen(),
+    ),
+    _Tile(
+      icon: Icons.photo_library,
+      label: 'Foto\'s',
+      builder: (_) => const PhotosScreen(),
+    ),
   ];
 
   @override
   void initState() {
     super.initState();
     NotificationService().initialize();
+    _maybeShowWelcomeDialog();
+  }
+
+  Future<void> _maybeShowWelcomeDialog() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final profile = await UserProfileService().fetchOnce(uid);
+    if (profile == null || profile.hasSeenWelcome) return;
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _WelcomeDialog(),
+    );
+
+    await UserProfileService().markWelcomeSeen();
   }
 
   @override
@@ -59,7 +102,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Stack(
                     children: [
                       Center(
-                        child: Image.asset('assets/images/logo_full.png', height: 150),
+                        child: Image.asset(
+                          'assets/images/logo_full.png',
+                          height: 150,
+                        ),
                       ),
                       Positioned(
                         top: 4,
@@ -68,11 +114,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           stream: UserProfileService().currentUserProfile,
                           builder: (context, snapshot) {
                             final nickname = snapshot.data?.nickname ?? '';
-                            final initial = nickname.isNotEmpty ? nickname[0].toUpperCase() : '?';
+                            final initial = nickname.isNotEmpty
+                                ? nickname[0].toUpperCase()
+                                : '?';
 
                             return GestureDetector(
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const ProfileScreen(),
+                                ),
                               ),
                               child: CircleAvatar(
                                 radius: 18,
@@ -127,13 +177,15 @@ class _TileCard extends StatelessWidget {
       elevation: 0,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: tile.builder),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: tile.builder)),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFF0EDC8).withOpacity(0.15)),
+            border: Border.all(
+              color: const Color(0xFFF0EDC8).withOpacity(0.15),
+            ),
           ),
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -154,6 +206,58 @@ class _TileCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WelcomeDialog extends StatelessWidget {
+  const _WelcomeDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1B2E5C),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('👋', style: TextStyle(fontSize: 48)),
+          const SizedBox(height: 12),
+          const Text(
+            'Welkom bij The Box!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFFF0EDC8),
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Blijf op de hoogte van het laatste nieuws, bekijk foto\'s van onze '
+            'events, vier je mijlpalen op de Wall of fame en deel je scores of '
+            'PR\'s op de leaderboards. Oh, en gezellig kletsen? Dat doe je in het '
+            'Koffiehoekje. Veel plezier!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: const Color(0xFFF0EDC8).withOpacity(0.85),
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8B1E2B),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Aan de slag'),
+          ),
+        ),
+      ],
     );
   }
 }

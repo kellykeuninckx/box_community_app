@@ -49,9 +49,7 @@ class UserProfileService {
     final uid = _uid;
     if (uid == null) return;
 
-    await _collection.doc(uid).set({
-      'gender': gender,
-    }, SetOptions(merge: true));
+    await _collection.doc(uid).set({'gender': gender}, SetOptions(merge: true));
   }
 
   /// Eenmalig te vragen, alléén wanneer iemand voor het eerst een lift-PR invult.
@@ -87,8 +85,15 @@ class UserProfileService {
     final uid = _uid;
     if (uid == null) return;
 
+    await _collection.doc(uid).set({field: value}, SetOptions(merge: true));
+  }
+
+  Future<void> markWelcomeSeen() async {
+    final uid = _uid;
+    if (uid == null) return;
+
     await _collection.doc(uid).set({
-      field: value,
+      'hasSeenWelcome': true,
     }, SetOptions(merge: true));
   }
 
