@@ -30,6 +30,17 @@ class PhotoDetailScreen extends StatefulWidget {
 class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   bool _isDownloading = false;
 
+  /// share_plus vereist een niet-lege sharePositionOrigin (voor de
+  /// iPad-popover-anchor) — zonder dit gooit het delen een PlatformException.
+  Rect _sharePositionOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) {
+      final size = MediaQuery.of(context).size;
+      return Rect.fromLTWH(0, 0, size.width, size.height);
+    }
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
   Future<void> _download() async {
     setState(() => _isDownloading = true);
 
@@ -42,7 +53,12 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       await file.writeAsBytes(response.bodyBytes);
 
       if (!mounted) return;
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          sharePositionOrigin: _sharePositionOrigin(),
+        ),
+      );
     } catch (e) {
       debugPrint('[PhotoDownload] Downloaden mislukt: $e');
       if (mounted) {

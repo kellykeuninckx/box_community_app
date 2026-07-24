@@ -203,6 +203,17 @@ class _PhotoGridState extends State<_PhotoGrid> {
   List<PhotoPost> get _selectedPosts =>
       widget.posts.where((p) => _selectedIds.contains(p.id)).toList();
 
+  /// share_plus vereist een niet-lege sharePositionOrigin (voor de
+  /// iPad-popover-anchor) — zonder dit gooit het delen een PlatformException.
+  Rect _sharePositionOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) {
+      final size = MediaQuery.of(context).size;
+      return Rect.fromLTWH(0, 0, size.width, size.height);
+    }
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
   bool get _allSelectedDeletable =>
       _selectedIds.isNotEmpty && _selectedPosts.every(_canDelete);
 
@@ -245,7 +256,9 @@ class _PhotoGridState extends State<_PhotoGrid> {
       }
 
       if (!mounted) return;
-      await SharePlus.instance.share(ShareParams(files: files));
+      await SharePlus.instance.share(
+        ShareParams(files: files, sharePositionOrigin: _sharePositionOrigin()),
+      );
 
       if (!mounted) return;
       _exitSelectionMode();
