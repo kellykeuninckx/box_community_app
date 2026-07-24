@@ -20,9 +20,20 @@ class ChallengeResultService {
         );
   }
 
+  /// Eenmalige versie van [resultsFor], voor het jaaroverzicht — daar hoeft
+  /// niet live meegekeken te worden.
+  Future<List<ChallengeResult>> fetchResultsOnce(String challengeId) async {
+    final snapshot = await _collection
+        .where('challengeId', isEqualTo: challengeId)
+        .orderBy('normalizedScore')
+        .get();
+    return snapshot.docs.map(ChallengeResult.fromFirestore).toList();
+  }
+
   /// normalizedScore zorgt dat de query altijd oplopend sorteert, ongeacht of
-  /// deze challenge op tijd (laagste wint) of reps (hoogste wint) scoort —
-  /// zo hoeft er nooit een nieuwe index bij voor een nieuw soort challenge.
+  /// deze challenge op tijd (laagste wint), reps (hoogste wint) of volhouden
+  /// (hoogste tijd wint) scoort — zo hoeft er nooit een nieuwe index bij voor
+  /// een nieuw soort challenge.
   Future<void> submitResult({
     required String challengeId,
     required ChallengeScoreType scoreType,
@@ -34,7 +45,9 @@ class ChallengeResultService {
 
     final profileService = UserProfileService();
     final nickname = await profileService.nicknameFor(uid);
-    final normalizedScore = scoreType == ChallengeScoreType.reps
+    final normalizedScore =
+        scoreType == ChallengeScoreType.reps ||
+            scoreType == ChallengeScoreType.holdTime
         ? -rawValue
         : rawValue;
 

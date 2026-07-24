@@ -293,6 +293,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         activeColor: _red,
                         onChanged: (value) => _profileService.setNotificationPreference('notifyNewsAndAgenda', value),
                       ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Herinnering voor challenges', style: TextStyle(fontSize: 13, color: _cream)),
+                        subtitle: Text(
+                          'Als je nog geen score hebt ingevuld, 4 dagen voor het einde',
+                          style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5)),
+                        ),
+                        value: profile?.notifyChallengeReminders ?? true,
+                        activeColor: _red,
+                        onChanged: (value) => _profileService.setNotificationPreference('notifyChallengeReminders', value),
+                      ),
                     ],
                   ),
 

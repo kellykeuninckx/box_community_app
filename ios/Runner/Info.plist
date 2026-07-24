@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>The Box Community heeft toegang tot je foto's nodig om een foto te kunnen plaatsen.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>The Box Community wil gedownloade foto's kunnen opslaan in je fotorol.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -16,7 +16,12 @@ class PhotoDetailScreen extends StatefulWidget {
   final PhotoService service;
   final bool canDelete;
 
-  const PhotoDetailScreen({super.key, required this.post, required this.service, required this.canDelete});
+  const PhotoDetailScreen({
+    super.key,
+    required this.post,
+    required this.service,
+    required this.canDelete,
+  });
 
   @override
   State<PhotoDetailScreen> createState() => _PhotoDetailScreenState();
@@ -31,15 +36,20 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     try {
       final response = await http.get(Uri.parse(widget.post.imageUrl));
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/foto_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final file = File(
+        '${tempDir.path}/foto_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
       await file.writeAsBytes(response.bodyBytes);
 
       if (!mounted) return;
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PhotoDownload] Downloaden mislukt: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Downloaden is niet gelukt. Probeer het opnieuw.')),
+          const SnackBar(
+            content: Text('Downloaden is niet gelukt. Probeer het opnieuw.'),
+          ),
         );
       }
     } finally {
@@ -60,7 +70,10 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Annuleer', style: TextStyle(color: _cream.withOpacity(0.7))),
+            child: Text(
+              'Annuleer',
+              style: TextStyle(color: _cream.withOpacity(0.7)),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -83,6 +96,13 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         title: Text(widget.post.title),
         backgroundColor: _navy,
         foregroundColor: _cream,
+        actions: [
+          if (widget.canDelete)
+            IconButton(
+              onPressed: _confirmDelete,
+              icon: const Icon(Icons.delete_outline),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -92,38 +112,38 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             child: Column(
               children: [
                 Text(
                   'Geplaatst door ${widget.post.nickname}',
-                  style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.6)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _cream.withOpacity(0.6),
+                  ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isDownloading ? null : _download,
-                        icon: _isDownloading
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.download),
-                        label: Text(_isDownloading ? 'Bezig...' : 'Downloaden'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
+                ElevatedButton.icon(
+                  onPressed: _isDownloading ? null : _download,
+                  icon: _isDownloading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.download),
+                  label: Text(_isDownloading ? 'Bezig...' : 'Downloaden'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
                     ),
-                    if (widget.canDelete) ...[
-                      const SizedBox(width: 12),
-                      IconButton(
-                        onPressed: _confirmDelete,
-                        icon: Icon(Icons.delete_outline, color: _cream.withOpacity(0.7)),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ],
             ),

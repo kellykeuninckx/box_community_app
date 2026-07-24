@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum ChallengeScoreType { time, reps }
+enum ChallengeScoreType { time, reps, holdTime }
 
 extension ChallengeScoreTypeLabel on ChallengeScoreType {
   String get label {
@@ -9,6 +9,8 @@ extension ChallengeScoreTypeLabel on ChallengeScoreType {
         return 'Tijd';
       case ChallengeScoreType.reps:
         return 'Reps';
+      case ChallengeScoreType.holdTime:
+        return 'Volhouden';
     }
   }
 }
@@ -23,6 +25,11 @@ class Challenge {
   final String createdByUid;
   final DateTime createdAt;
 
+  /// Alleen relevant bij scoreType reps — overschrijft het standaardwoord
+  /// "reps" (bv. "meter" of "kcal") zonder dat de sortering/winnaarslogica
+  /// verandert, die blijft gewoon "hoogste getal wint".
+  final String? unitLabel;
+
   Challenge({
     required this.id,
     required this.title,
@@ -32,6 +39,7 @@ class Challenge {
     required this.endDate,
     required this.createdByUid,
     required this.createdAt,
+    this.unitLabel,
   });
 
   factory Challenge.fromFirestore(DocumentSnapshot doc) {
@@ -48,6 +56,7 @@ class Challenge {
       endDate: (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdByUid: data['createdByUid'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      unitLabel: data['unitLabel'],
     );
   }
 
@@ -57,4 +66,7 @@ class Challenge {
     final now = DateTime.now();
     return !now.isBefore(startDate) && !now.isAfter(endDate);
   }
+
+  /// Het label dat bij scoreType reps naast het getal getoond wordt.
+  String get unit => (unitLabel?.trim().isNotEmpty ?? false) ? unitLabel!.trim() : 'reps';
 }

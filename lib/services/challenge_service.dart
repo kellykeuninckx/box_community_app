@@ -20,14 +20,30 @@ class ChallengeService {
     });
   }
 
+  /// Oplopend op startdatum, zodat de geschiedenis-navigatie in de UI
+  /// gewoon met een index door de lijst kan bladeren.
+  Stream<List<Challenge>> get allChallenges {
+    return _collection.orderBy('startDate').snapshots().map(
+      (snapshot) => snapshot.docs.map(Challenge.fromFirestore).toList(),
+    );
+  }
+
+  /// Eenmalige versie van [allChallenges], voor het jaaroverzicht.
+  Future<List<Challenge>> fetchAllChallenges() async {
+    final snapshot = await _collection.orderBy('startDate').get();
+    return snapshot.docs.map(Challenge.fromFirestore).toList();
+  }
+
   Future<void> addChallenge({
     required String title,
     required String description,
     required ChallengeScoreType scoreType,
     required DateTime startDate,
     required DateTime endDate,
+    String? unitLabel,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final trimmedUnitLabel = unitLabel?.trim();
 
     await _collection.add({
       'title': title,
@@ -37,6 +53,7 @@ class ChallengeService {
       'endDate': Timestamp.fromDate(endDate),
       'createdByUid': uid,
       'createdAt': FieldValue.serverTimestamp(),
+      if (trimmedUnitLabel != null && trimmedUnitLabel.isNotEmpty) 'unitLabel': trimmedUnitLabel,
     });
   }
 }

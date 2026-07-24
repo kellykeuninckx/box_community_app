@@ -43,6 +43,10 @@ String _formatDutchDate(DateTime date) {
   return '$weekday ${date.day} $month ${date.year}';
 }
 
+String _formatDutchMonthYear(DateTime date) {
+  return '${_months[date.month - 1]} ${date.year}';
+}
+
 /// Losgetrokken van een eigen Scaffold zodat dit ingebed kan worden als tab
 /// binnen de Leaderboards-tegel (zie leaderboards_screen.dart).
 class ChallengesBody extends StatefulWidget {
@@ -56,6 +60,23 @@ class _ChallengesBodyState extends State<ChallengesBody> {
   final _challengeService = ChallengeService();
   final _resultService = ChallengeResultService();
 
+  // null = "volg de actieve/laatst-afgelopen challenge automatisch";
+  // zodra iemand met de pijltjes bladert, onthouden we de gekozen id.
+  String? _selectedChallengeId;
+
+  /// Actieve challenge wint; is er geen, dan de meest recente afgelopen
+  /// challenge; zijn alle challenges nog toekomstig, dan de eerstvolgende.
+  int _defaultIndex(List<Challenge> challenges) {
+    final activeIndex = challenges.indexWhere((c) => c.isActiveNow);
+    if (activeIndex != -1) return activeIndex;
+
+    final now = DateTime.now();
+    for (var i = challenges.length - 1; i >= 0; i--) {
+      if (challenges[i].endDate.isBefore(now)) return i;
+    }
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -66,8 +87,8 @@ class _ChallengesBodyState extends State<ChallengesBody> {
           builder: (context, profileSnapshot) {
             final isAdmin = profileSnapshot.data?.isAdmin ?? false;
 
-            return StreamBuilder<Challenge?>(
-              stream: _challengeService.activeChallenge,
+            return StreamBuilder<List<Challenge>>(
+              stream: _challengeService.allChallenges,
               builder: (context, challengeSnapshot) {
                 if (challengeSnapshot.connectionState ==
                     ConnectionState.waiting) {
@@ -90,7 +111,28 @@ class _ChallengesBodyState extends State<ChallengesBody> {
                   );
                 }
 
-                final challenge = challengeSnapshot.data;
+                final rawChallenges = challengeSnapshot.data ?? [];
+                // Niet-admins zien nog-niet-gestarte challenges niet — die
+                // blijven een verrassing tot de startdatum aanbreekt.
+                final now = DateTime.now();
+                final challenges = isAdmin
+                    ? rawChallenges
+                    : rawChallenges
+                          .where((c) => !c.startDate.isAfter(now))
+                          .toList();
+                final selectedIndex = challenges.isEmpty
+                    ? -1
+                    : () {
+                        final idx = _selectedChallengeId == null
+                            ? -1
+                            : challenges.indexWhere(
+                                (c) => c.id == _selectedChallengeId,
+                              );
+                        return idx != -1 ? idx : _defaultIndex(challenges);
+                      }();
+                final challenge = selectedIndex == -1
+                    ? null
+                    : challenges[selectedIndex];
 
                 return Column(
                   children: [
@@ -115,19 +157,35 @@ class _ChallengesBodyState extends State<ChallengesBody> {
                       Expanded(
                         child: Center(
                           child: Text(
-                            'Geen actieve challenge op dit moment.',
+                            'Nog geen challenges geplaatst.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: _cream.withOpacity(0.6)),
                           ),
                         ),
                       )
-                    else
+                    else ...[
+                      if (challenges.length > 1)
+                        _ChallengeNav(
+                          label: _formatDutchMonthYear(challenge.startDate),
+                          canGoOlder: selectedIndex > 0,
+                          canGoNewer: selectedIndex < challenges.length - 1,
+                          onOlder: () => setState(
+                            () => _selectedChallengeId =
+                                challenges[selectedIndex - 1].id,
+                          ),
+                          onNewer: () => setState(
+                            () => _selectedChallengeId =
+                                challenges[selectedIndex + 1].id,
+                          ),
+                        ),
                       Expanded(
-                        child: _ActiveChallenge(
+                        child: _ChallengeDetail(
                           challenge: challenge,
+                          readOnly: !challenge.isActiveNow,
                           resultService: _resultService,
                         ),
                       ),
+                    ],
                   ],
                 );
               },
@@ -148,14 +206,84 @@ class _ChallengesBodyState extends State<ChallengesBody> {
   }
 }
 
-class _ActiveChallenge extends StatelessWidget {
+class _ChallengeNav extends StatelessWidget {
+  final String label;
+  final bool canGoOlder;
+  final bool canGoNewer;
+  final VoidCallback onOlder;
+  final VoidCallback onNewer;
+
+  const _ChallengeNav({
+    required this.label,
+    required this.canGoOlder,
+    required this.canGoNewer,
+    required this.onOlder,
+    required this.onNewer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: canGoOlder ? onOlder : null,
+            icon: Icon(
+              Icons.chevron_left,
+              color: canGoOlder ? _cream : _cream.withOpacity(0.2),
+            ),
+          ),
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _cream,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: canGoNewer ? onNewer : null,
+            icon: Icon(
+              Icons.chevron_right,
+              color: canGoNewer ? _cream : _cream.withOpacity(0.2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChallengeDetail extends StatelessWidget {
   final Challenge challenge;
+  final bool readOnly;
   final ChallengeResultService resultService;
 
-  const _ActiveChallenge({
+  const _ChallengeDetail({
     required this.challenge,
+    required this.readOnly,
     required this.resultService,
   });
+
+  String get _statusLabel {
+    if (!readOnly) return 'Tot en met ${_formatDutchDate(challenge.endDate)}';
+    if (DateTime.now().isBefore(challenge.startDate)) {
+      return 'Start op ${_formatDutchDate(challenge.startDate)}';
+    }
+    return 'Afgelopen op ${_formatDutchDate(challenge.endDate)}';
+  }
+
+  String _formatValue(ChallengeResult result) {
+    if (challenge.scoreType != ChallengeScoreType.reps)
+      return result.formattedValue;
+    return '${result.rawValue.round()} ${challenge.unit}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +319,9 @@ class _ActiveChallenge extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          challenge.scoreType.label,
+                          challenge.scoreType == ChallengeScoreType.reps
+                              ? '${challenge.unit[0].toUpperCase()}${challenge.unit.substring(1)}'
+                              : challenge.scoreType.label,
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -210,10 +340,13 @@ class _ActiveChallenge extends StatelessWidget {
                   ],
                   const SizedBox(height: 6),
                   Text(
-                    'Tot en met ${_formatDutchDate(challenge.endDate)}',
+                    _statusLabel,
                     style: TextStyle(
                       fontSize: 11,
-                      color: _cream.withOpacity(0.5),
+                      fontWeight: readOnly ? FontWeight.w600 : null,
+                      color: readOnly
+                          ? _cream.withOpacity(0.4)
+                          : _cream.withOpacity(0.5),
                     ),
                   ),
                 ],
@@ -312,13 +445,13 @@ class _ActiveChallenge extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            result.formattedValue,
+                            _formatValue(result),
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               color: _cream,
                             ),
                           ),
-                          if (isMine)
+                          if (isMine && !readOnly)
                             IconButton(
                               icon: Icon(
                                 Icons.delete_outline,
@@ -336,20 +469,21 @@ class _ActiveChallenge extends StatelessWidget {
             },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: ElevatedButton.icon(
-            onPressed: () => _showSubmitSheet(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Score invullen'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _red,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              minimumSize: const Size.fromHeight(44),
+        if (!readOnly)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: ElevatedButton.icon(
+              onPressed: () => _showSubmitSheet(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Score invullen'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                minimumSize: const Size.fromHeight(44),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -364,7 +498,7 @@ class _ActiveChallenge extends StatelessWidget {
           style: TextStyle(color: _cream),
         ),
         content: Text(
-          'Dit verwijdert jouw score van ${result.formattedValue}. Dit kan niet ongedaan gemaakt worden.',
+          'Dit verwijdert jouw score van ${_formatValue(result)}. Dit kan niet ongedaan gemaakt worden.',
           style: TextStyle(color: _cream.withOpacity(0.7)),
         ),
         actions: [
@@ -429,7 +563,7 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
     setState(() => _errorMessage = null);
 
     double rawValue;
-    if (widget.challenge.scoreType == ChallengeScoreType.time) {
+    if (widget.challenge.scoreType != ChallengeScoreType.reps) {
       final minutes = int.tryParse(_minutesController.text) ?? 0;
       final seconds = int.tryParse(_secondsController.text) ?? 0;
       if (seconds < 0 || seconds > 59) {
@@ -483,7 +617,7 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
           ),
           const SizedBox(height: 16),
 
-          if (widget.challenge.scoreType == ChallengeScoreType.time)
+          if (widget.challenge.scoreType != ChallengeScoreType.reps)
             Row(
               children: [
                 Expanded(
@@ -523,7 +657,7 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
               keyboardType: TextInputType.number,
               style: const TextStyle(color: _cream),
               decoration: InputDecoration(
-                labelText: 'Aantal reps',
+                labelText: 'Aantal ${widget.challenge.unit}',
                 labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -592,6 +726,7 @@ class _NewChallengeSheet extends StatefulWidget {
 class _NewChallengeSheetState extends State<_NewChallengeSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _unitLabelController = TextEditingController();
   ChallengeScoreType _scoreType = ChallengeScoreType.time;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
@@ -602,6 +737,7 @@ class _NewChallengeSheetState extends State<_NewChallengeSheet> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _unitLabelController.dispose();
     super.dispose();
   }
 
@@ -648,6 +784,9 @@ class _NewChallengeSheetState extends State<_NewChallengeSheet> {
       scoreType: _scoreType,
       startDate: _startDate,
       endDate: _endDate,
+      unitLabel: _scoreType == ChallengeScoreType.reps
+          ? _unitLabelController.text
+          : null,
     );
 
     if (!mounted) return;
@@ -722,6 +861,26 @@ class _NewChallengeSheetState extends State<_NewChallengeSheet> {
               );
             }).toList(),
           ),
+
+          if (_scoreType == ChallengeScoreType.reps) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _unitLabelController,
+              style: const TextStyle(color: _cream),
+              decoration: InputDecoration(
+                labelText: 'Eenheid (optioneel)',
+                hintText: 'Leeg = reps',
+                helperText: 'Bijvoorbeeld: burpees, calorieën, meters',
+                helperMaxLines: 2,
+                labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
+                hintStyle: TextStyle(color: _cream.withOpacity(0.3)),
+                helperStyle: TextStyle(color: _cream.withOpacity(0.4)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
 
           Row(

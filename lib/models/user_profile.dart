@@ -18,10 +18,15 @@ class UserProfile {
   final bool notifyWallOfFameReactions;
   final bool notifyKoffiehoekjeReactions;
   final bool notifyNewsAndAgenda;
+  final bool notifyChallengeReminders;
 
   /// Of het welkomstbericht al getoond is — voorkomt dat het bij elke login
   /// opnieuw verschijnt.
   final bool hasSeenWelcome;
+
+  /// Het jaartal van het laatst geziene eindejaars-jaaroverzicht — voorkomt
+  /// dat de popup elke keer opnieuw verschijnt binnen hetzelfde venster.
+  final int? lastSeenYearRecap;
 
   UserProfile({
     required this.uid,
@@ -34,7 +39,9 @@ class UserProfile {
     this.notifyWallOfFameReactions = true,
     this.notifyKoffiehoekjeReactions = true,
     this.notifyNewsAndAgenda = true,
+    this.notifyChallengeReminders = true,
     this.hasSeenWelcome = false,
+    this.lastSeenYearRecap,
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -50,7 +57,9 @@ class UserProfile {
       notifyWallOfFameReactions: data['notifyWallOfFameReactions'] ?? true,
       notifyKoffiehoekjeReactions: data['notifyKoffiehoekjeReactions'] ?? true,
       notifyNewsAndAgenda: data['notifyNewsAndAgenda'] ?? true,
+      notifyChallengeReminders: data['notifyChallengeReminders'] ?? true,
       hasSeenWelcome: data['hasSeenWelcome'] ?? false,
+      lastSeenYearRecap: data['lastSeenYearRecap'] as int?,
     );
   }
 

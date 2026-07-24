@@ -39,6 +39,7 @@ class UserProfileService {
         'notifyWallOfFameReactions': true,
         'notifyKoffiehoekjeReactions': true,
         'notifyNewsAndAgenda': true,
+        'notifyChallengeReminders': true,
       });
     }
   }
@@ -94,6 +95,15 @@ class UserProfileService {
 
     await _collection.doc(uid).set({
       'hasSeenWelcome': true,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> markYearRecapSeen(int year) async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    await _collection.doc(uid).set({
+      'lastSeenYearRecap': year,
     }, SetOptions(merge: true));
   }
 

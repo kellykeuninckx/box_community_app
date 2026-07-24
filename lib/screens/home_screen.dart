@@ -10,7 +10,9 @@ import 'profile_screen.dart';
 import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
 import '../services/notification_service.dart';
+import '../services/challenge_recap_service.dart';
 import '../widgets/logo_pattern_background.dart';
+import 'challenge_year_recap_screen.dart';
 
 class _Tile {
   final IconData icon;
@@ -66,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     NotificationService().initialize();
     _maybeShowWelcomeDialog();
+    _maybeShowYearRecapDialog();
   }
 
   Future<void> _maybeShowWelcomeDialog() async {
@@ -83,6 +86,35 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     await UserProfileService().markWelcomeSeen();
+  }
+
+  /// Venster 31 december t/m 15 januari, zodat ook wie pas begin januari de
+  /// app weer opent het jaaroverzicht nog te zien krijgt. Op 31 december zelf
+  /// gaat het over het lopende jaar, in januari over het jaar dat net voorbij is.
+  Future<void> _maybeShowYearRecapDialog() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final now = DateTime.now();
+    final inWindow = (now.month == 12 && now.day == 31) || (now.month == 1 && now.day <= 15);
+    if (!inWindow) return;
+
+    final recapYear = now.month == 12 ? now.year : now.year - 1;
+
+    final profile = await UserProfileService().fetchOnce(uid);
+    if (profile == null || profile.lastSeenYearRecap == recapYear) return;
+
+    final recap = await ChallengeRecapService().buildRecap(recapYear);
+    if (recap.isEmpty) return;
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _YearRecapDialog(recap: recap),
+    );
+
+    await UserProfileService().markYearRecapSeen(recapYear);
   }
 
   @override
@@ -255,6 +287,58 @@ class _WelcomeDialog extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             child: const Text('Aan de slag'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _YearRecapDialog extends StatelessWidget {
+  final ChallengeYearRecap recap;
+
+  const _YearRecapDialog({required this.recap});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1B2E5C),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🎉', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 12),
+              Text(
+                'Terugblik op ${recap.year}!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFFF0EDC8),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ChallengeYearRecapContent(recap: recap),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8B1E2B),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Mooi zo!'),
           ),
         ),
       ],

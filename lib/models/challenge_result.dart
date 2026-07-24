@@ -40,12 +40,12 @@ class ChallengeResult {
   }
 
   String get formattedValue {
-    if (scoreType == ChallengeScoreType.time) {
-      final totalSeconds = rawValue.round();
-      final minutes = totalSeconds ~/ 60;
-      final seconds = totalSeconds % 60;
-      return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    if (scoreType == ChallengeScoreType.reps) {
+      return '${rawValue.round()} reps';
     }
-    return '${rawValue.round()} reps';
+    final totalSeconds = rawValue.round();
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }

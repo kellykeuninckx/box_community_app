@@ -51,6 +51,7 @@ class _LeaderboardsScreenState extends State<LeaderboardsScreen> {
                 selected: {_selected},
                 onSelectionChanged: (selection) =>
                     setState(() => _selected = selection.first),
+                showSelectedIcon: false,
                 style: ButtonStyle(
                   backgroundColor: WidgetStateProperty.resolveWith((states) {
                     return states.contains(WidgetState.selected) ? _red : null;
@@ -61,9 +62,11 @@ class _LeaderboardsScreenState extends State<LeaderboardsScreen> {
                         : _cream;
                   }),
                   textStyle: WidgetStateProperty.all(
-                    const TextStyle(fontSize: 12),
+                    const TextStyle(fontSize: 13),
                   ),
-                  visualDensity: VisualDensity.compact,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
                 ),
               ),
             ),

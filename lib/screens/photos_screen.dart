@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/photo_post.dart';
 import '../models/user_profile.dart';
 import '../services/photo_service.dart';
@@ -50,17 +53,33 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     padding: const EdgeInsets.all(12),
                     child: SegmentedButton<PhotoCategory>(
                       segments: const [
-                        ButtonSegment(value: PhotoCategory.daily, label: Text('Scores')),
-                        ButtonSegment(value: PhotoCategory.event, label: Text('Evenementen')),
+                        ButtonSegment(
+                          value: PhotoCategory.daily,
+                          label: Text('Scores'),
+                        ),
+                        ButtonSegment(
+                          value: PhotoCategory.event,
+                          label: Text('Evenementen'),
+                        ),
                       ],
                       selected: {_selectedCategory},
-                      onSelectionChanged: (selection) => setState(() => _selectedCategory = selection.first),
+                      onSelectionChanged: (selection) =>
+                          setState(() => _selectedCategory = selection.first),
+                      showSelectedIcon: false,
                       style: ButtonStyle(
-                        backgroundColor: WidgetStateProperty.resolveWith((states) {
-                          return states.contains(WidgetState.selected) ? _red : null;
+                        backgroundColor: WidgetStateProperty.resolveWith((
+                          states,
+                        ) {
+                          return states.contains(WidgetState.selected)
+                              ? _red
+                              : null;
                         }),
-                        foregroundColor: WidgetStateProperty.resolveWith((states) {
-                          return states.contains(WidgetState.selected) ? Colors.white : _cream;
+                        foregroundColor: WidgetStateProperty.resolveWith((
+                          states,
+                        ) {
+                          return states.contains(WidgetState.selected)
+                              ? Colors.white
+                              : _cream;
                         }),
                       ),
                     ),
@@ -71,8 +90,11 @@ class _PhotosScreenState extends State<PhotosScreen> {
                         : StreamBuilder<List<PhotoPost>>(
                             stream: _service.postsFor(_selectedCategory),
                             builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
-                                return const Center(child: CircularProgressIndicator());
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
                               }
 
                               if (snapshot.hasError) {
@@ -82,7 +104,10 @@ class _PhotosScreenState extends State<PhotosScreen> {
                                     child: Text(
                                       'Fout bij laden: ${snapshot.error}',
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                      style: const TextStyle(
+                                        color: Colors.redAccent,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 );
@@ -94,12 +119,18 @@ class _PhotosScreenState extends State<PhotosScreen> {
                                 return Center(
                                   child: Text(
                                     'Nog geen foto\'s.',
-                                    style: TextStyle(color: _cream.withOpacity(0.6)),
+                                    style: TextStyle(
+                                      color: _cream.withOpacity(0.6),
+                                    ),
                                   ),
                                 );
                               }
 
-                              return _PhotoGrid(posts: posts, service: _service, isAdmin: isAdmin);
+                              return _PhotoGrid(
+                                posts: posts,
+                                service: _service,
+                                isAdmin: isAdmin,
+                              );
                             },
                           ),
                   ),
@@ -116,7 +147,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
           return FloatingActionButton(
             backgroundColor: _red,
-            onPressed: () => _showUploadSheet(context),
+            onPressed: () =>
+                _showUploadSheet(context, snapshot.data?.isAdmin ?? false),
             child: const Icon(Icons.add_a_photo, color: Colors.white),
           );
         },
@@ -124,42 +156,256 @@ class _PhotosScreenState extends State<PhotosScreen> {
     );
   }
 
-  void _showUploadSheet(BuildContext context) {
+  void _showUploadSheet(BuildContext context, bool isAdmin) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: _cardColor,
-      builder: (_) => _UploadSheet(service: _service, initialCategory: _selectedCategory),
+      builder: (_) => _UploadSheet(
+        service: _service,
+        initialCategory: _selectedCategory,
+        isAdmin: isAdmin,
+      ),
     );
   }
 }
 
 /// Herbruikbaar rooster van foto's — gebruikt voor zowel Scores (platte lijst)
-/// als de inhoud van één specifiek evenement-album.
-class _PhotoGrid extends StatelessWidget {
+/// als de inhoud van één specifiek evenement-album. Beheert zelf de
+/// selectiemodus voor bulk-verwijderen, zodat beide gebruiksplekken dat gratis
+/// meekrijgen.
+class _PhotoGrid extends StatefulWidget {
   final List<PhotoPost> posts;
   final PhotoService service;
   final bool isAdmin;
 
-  const _PhotoGrid({required this.posts, required this.service, required this.isAdmin});
+  const _PhotoGrid({
+    required this.posts,
+    required this.service,
+    required this.isAdmin,
+  });
+
+  @override
+  State<_PhotoGrid> createState() => _PhotoGridState();
+}
+
+class _PhotoGridState extends State<_PhotoGrid> {
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
+  bool _isDownloading = false;
+  int _downloadedCount = 0;
+
+  bool _canDelete(PhotoPost post) {
+    if (post.category == PhotoCategory.daily) return widget.isAdmin;
+    return widget.isAdmin || FirebaseAuth.instance.currentUser?.uid == post.uid;
+  }
+
+  List<PhotoPost> get _selectedPosts =>
+      widget.posts.where((p) => _selectedIds.contains(p.id)).toList();
+
+  bool get _allSelectedDeletable =>
+      _selectedIds.isNotEmpty && _selectedPosts.every(_canDelete);
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (!_selectedIds.remove(id)) _selectedIds.add(id);
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  Future<void> _downloadSelected() async {
+    final selectedPosts = _selectedPosts;
+    if (selectedPosts.isEmpty) return;
+
+    setState(() {
+      _isDownloading = true;
+      _downloadedCount = 0;
+    });
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final files = <XFile>[];
+
+      for (final post in selectedPosts) {
+        final response = await http.get(Uri.parse(post.imageUrl));
+        final file = File(
+          '${tempDir.path}/foto_${DateTime.now().millisecondsSinceEpoch}_${files.length}.jpg',
+        );
+        await file.writeAsBytes(response.bodyBytes);
+        files.add(XFile(file.path));
+
+        if (!mounted) return;
+        setState(() => _downloadedCount++);
+      }
+
+      if (!mounted) return;
+      await SharePlus.instance.share(ShareParams(files: files));
+
+      if (!mounted) return;
+      _exitSelectionMode();
+    } catch (e) {
+      debugPrint('[PhotoGrid] Bulk-download mislukt: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Downloaden is niet gelukt. Probeer het opnieuw.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
+  Future<void> _deleteSelected() async {
+    final selectedPosts = _selectedPosts;
+    if (selectedPosts.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: _cardColor,
+        title: Text(
+          '${selectedPosts.length} foto${selectedPosts.length == 1 ? '' : '\'s'} verwijderen?',
+          style: const TextStyle(color: _cream),
+        ),
+        content: Text(
+          'Dit kan niet ongedaan gemaakt worden.',
+          style: TextStyle(color: _cream.withOpacity(0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Annuleer',
+              style: TextStyle(color: _cream.withOpacity(0.7)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Verwijder', style: TextStyle(color: _red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await Future.wait(selectedPosts.map(widget.service.deletePhoto));
+
+    if (!mounted) return;
+    _exitSelectionMode();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: posts.length,
-      itemBuilder: (context, index) {
-        final post = posts[index];
-        final canDelete = isAdmin || (FirebaseAuth.instance.currentUser?.uid == post.uid);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: _selectionMode
+              ? Row(
+                  children: [
+                    Text(
+                      _isDownloading
+                          ? 'Bezig... ($_downloadedCount/${_selectedIds.length})'
+                          : '${_selectedIds.length} geselecteerd',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _cream.withOpacity(0.6),
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: _isDownloading ? null : _exitSelectionMode,
+                      child: Text(
+                        'Annuleer',
+                        style: TextStyle(color: _cream.withOpacity(0.7)),
+                      ),
+                    ),
+                    IconButton(
+                      icon: _isDownloading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: _cream,
+                              ),
+                            )
+                          : Icon(
+                              Icons.download_outlined,
+                              color: _selectedIds.isEmpty
+                                  ? _cream.withOpacity(0.3)
+                                  : _cream,
+                            ),
+                      onPressed: (_isDownloading || _selectedIds.isEmpty)
+                          ? null
+                          : _downloadSelected,
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: _allSelectedDeletable
+                            ? _red
+                            : _cream.withOpacity(0.3),
+                      ),
+                      onPressed: (_isDownloading || !_allSelectedDeletable)
+                          ? null
+                          : _deleteSelected,
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => setState(() => _selectionMode = true),
+                      icon: Icon(
+                        Icons.checklist,
+                        size: 18,
+                        color: _cream.withOpacity(0.7),
+                      ),
+                      label: Text(
+                        'Selecteren',
+                        style: TextStyle(color: _cream.withOpacity(0.7)),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.85,
+            ),
+            itemCount: widget.posts.length,
+            itemBuilder: (context, index) {
+              final post = widget.posts[index];
+              final canDelete = _canDelete(post);
 
-        return _PhotoTile(post: post, service: service, canDelete: canDelete);
-      },
+              return _PhotoTile(
+                post: post,
+                service: widget.service,
+                canDelete: canDelete,
+                selectionMode: _selectionMode,
+                selected: _selectedIds.contains(post.id),
+                onToggleSelected: () => _toggleSelected(post.id),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -197,7 +443,10 @@ class _EventAlbumsView extends StatelessWidget {
 
         if (posts.isEmpty) {
           return Center(
-            child: Text('Nog geen albums.', style: TextStyle(color: _cream.withOpacity(0.6))),
+            child: Text(
+              'Nog geen albums.',
+              style: TextStyle(color: _cream.withOpacity(0.6)),
+            ),
           );
         }
 
@@ -223,12 +472,61 @@ class _EventAlbumsView extends StatelessWidget {
             final title = albumTitles[index];
             final albumPosts = albums[title]!;
 
-            return _AlbumTile(title: title, coverPost: albumPosts.first, count: albumPosts.length, posts: albumPosts, service: service, isAdmin: isAdmin);
+            return _AlbumTile(
+              title: title,
+              coverPost: albumPosts.first,
+              count: albumPosts.length,
+              posts: albumPosts,
+              service: service,
+              isAdmin: isAdmin,
+            );
           },
         );
       },
     );
   }
+}
+
+/// Bevestigingsdialoog + bulk-verwijdering van alle foto's in een album —
+/// gedeeld tussen de albumtegel en het albumdetailscherm.
+Future<bool> _confirmAndDeleteAlbum(
+  BuildContext context,
+  String title,
+  List<PhotoPost> posts,
+  PhotoService service,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: _cardColor,
+      title: Text(
+        'Album "$title" verwijderen?',
+        style: const TextStyle(color: _cream),
+      ),
+      content: Text(
+        'Dit verwijdert alle ${posts.length} foto${posts.length == 1 ? '' : '\'s'} in dit album. Dit kan niet ongedaan gemaakt worden.',
+        style: TextStyle(color: _cream.withOpacity(0.7)),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            'Annuleer',
+            style: TextStyle(color: _cream.withOpacity(0.7)),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Verwijder', style: TextStyle(color: _red)),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return false;
+
+  await Future.wait(posts.map(service.deletePhoto));
+  return true;
 }
 
 class _AlbumTile extends StatelessWidget {
@@ -254,7 +552,12 @@ class _AlbumTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => _AlbumDetailScreen(title: title, posts: posts, service: service, isAdmin: isAdmin),
+          builder: (_) => _AlbumDetailScreen(
+            title: title,
+            posts: posts,
+            service: service,
+            isAdmin: isAdmin,
+          ),
         ),
       ),
       child: Column(
@@ -271,7 +574,10 @@ class _AlbumTile extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: _cardColor,
-                      child: Icon(Icons.broken_image, color: _cream.withOpacity(0.4)),
+                      child: Icon(
+                        Icons.broken_image,
+                        color: _cream.withOpacity(0.4),
+                      ),
                     ),
                   ),
                 ),
@@ -279,11 +585,50 @@ class _AlbumTile extends StatelessWidget {
                   right: 6,
                   top: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                    child: Text('$count', style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
+                if (isAdmin)
+                  Positioned(
+                    left: 4,
+                    top: 4,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => _confirmAndDeleteAlbum(
+                        context,
+                        title,
+                        posts,
+                        service,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -292,7 +637,11 @@ class _AlbumTile extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _cream),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _cream,
+            ),
           ),
         ],
       ),
@@ -306,7 +655,12 @@ class _AlbumDetailScreen extends StatelessWidget {
   final PhotoService service;
   final bool isAdmin;
 
-  const _AlbumDetailScreen({required this.title, required this.posts, required this.service, required this.isAdmin});
+  const _AlbumDetailScreen({
+    required this.title,
+    required this.posts,
+    required this.service,
+    required this.isAdmin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -316,6 +670,22 @@ class _AlbumDetailScreen extends StatelessWidget {
         title: Text(title),
         backgroundColor: _navy,
         foregroundColor: _cream,
+        actions: [
+          if (isAdmin)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Album verwijderen',
+              onPressed: () async {
+                final deleted = await _confirmAndDeleteAlbum(
+                  context,
+                  title,
+                  posts,
+                  service,
+                );
+                if (deleted && context.mounted) Navigator.of(context).pop();
+              },
+            ),
+        ],
       ),
       body: _PhotoGrid(posts: posts, service: service, isAdmin: isAdmin),
     );
@@ -326,40 +696,92 @@ class _PhotoTile extends StatelessWidget {
   final PhotoPost post;
   final PhotoService service;
   final bool canDelete;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onToggleSelected;
 
-  const _PhotoTile({required this.post, required this.service, required this.canDelete});
+  const _PhotoTile({
+    required this.post,
+    required this.service,
+    required this.canDelete,
+    this.selectionMode = false,
+    this.selected = false,
+    required this.onToggleSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => PhotoDetailScreen(post: post, service: service, canDelete: canDelete),
-        ),
-      ),
+      onTap: selectionMode
+          ? onToggleSelected
+          : () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PhotoDetailScreen(
+                  post: post,
+                  service: service,
+                  canDelete: canDelete,
+                ),
+              ),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                post.imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return Container(
-                    color: _cardColor,
-                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: _cardColor,
-                  child: Icon(Icons.broken_image, color: _cream.withOpacity(0.4)),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    post.imageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        color: _cardColor,
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: _cardColor,
+                      child: Icon(
+                        Icons.broken_image,
+                        color: _cream.withOpacity(0.4),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                if (selectionMode)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: selected
+                        ? Container(
+                            width: 22,
+                            height: 22,
+                            decoration: const BoxDecoration(
+                              color: _cream,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              size: 16,
+                              color: _navy,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.circle_outlined,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(color: Colors.black54, blurRadius: 4),
+                            ],
+                          ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 4),
@@ -367,7 +789,11 @@ class _PhotoTile extends StatelessWidget {
             post.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _cream),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _cream,
+            ),
           ),
         ],
       ),
@@ -378,8 +804,13 @@ class _PhotoTile extends StatelessWidget {
 class _UploadSheet extends StatefulWidget {
   final PhotoService service;
   final PhotoCategory initialCategory;
+  final bool isAdmin;
 
-  const _UploadSheet({required this.service, required this.initialCategory});
+  const _UploadSheet({
+    required this.service,
+    required this.initialCategory,
+    required this.isAdmin,
+  });
 
   @override
   State<_UploadSheet> createState() => _UploadSheetState();
@@ -397,7 +828,10 @@ class _UploadSheetState extends State<_UploadSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedCategory = widget.initialCategory;
+    _selectedCategory =
+        (!widget.isAdmin && widget.initialCategory == PhotoCategory.event)
+        ? PhotoCategory.daily
+        : widget.initialCategory;
     _loadExistingAlbums();
   }
 
@@ -475,26 +909,45 @@ class _UploadSheetState extends State<_UploadSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Nieuwe foto\'s plaatsen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _cream)),
-          const SizedBox(height: 16),
-
-          SegmentedButton<PhotoCategory>(
-            segments: const [
-              ButtonSegment(value: PhotoCategory.daily, label: Text('Scores')),
-              ButtonSegment(value: PhotoCategory.event, label: Text('Evenement')),
-            ],
-            selected: {_selectedCategory},
-            onSelectionChanged: (selection) => setState(() => _selectedCategory = selection.first),
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.resolveWith((states) {
-                return states.contains(WidgetState.selected) ? _red : null;
-              }),
-              foregroundColor: WidgetStateProperty.resolveWith((states) {
-                return states.contains(WidgetState.selected) ? Colors.white : _cream;
-              }),
+          const Text(
+            'Nieuwe foto\'s plaatsen',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: _cream,
             ),
           ),
           const SizedBox(height: 16),
+
+          if (widget.isAdmin) ...[
+            SegmentedButton<PhotoCategory>(
+              segments: const [
+                ButtonSegment(
+                  value: PhotoCategory.daily,
+                  label: Text('Scores'),
+                ),
+                ButtonSegment(
+                  value: PhotoCategory.event,
+                  label: Text('Evenement'),
+                ),
+              ],
+              selected: {_selectedCategory},
+              onSelectionChanged: (selection) =>
+                  setState(() => _selectedCategory = selection.first),
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                  return states.contains(WidgetState.selected) ? _red : null;
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith((states) {
+                  return states.contains(WidgetState.selected)
+                      ? Colors.white
+                      : _cream;
+                }),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           if (_selectedImages.isNotEmpty) ...[
             SizedBox(
@@ -522,7 +975,12 @@ class _UploadSheetState extends State<_UploadSheet> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Image.file(_selectedImages[index], width: 90, height: 90, fit: BoxFit.cover),
+                        child: Image.file(
+                          _selectedImages[index],
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                       Positioned(
                         top: 2,
@@ -531,8 +989,15 @@ class _UploadSheetState extends State<_UploadSheet> {
                           onTap: () => _removeImage(index),
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 14, color: Colors.white),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -560,9 +1025,19 @@ class _UploadSheetState extends State<_UploadSheet> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_photo_alternate_outlined, color: _cream.withOpacity(0.5), size: 32),
+                    Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: _cream.withOpacity(0.5),
+                      size: 32,
+                    ),
                     const SizedBox(height: 6),
-                    Text('Kies een of meerdere foto\'s', style: TextStyle(color: _cream.withOpacity(0.5), fontSize: 13)),
+                    Text(
+                      'Kies een of meerdere foto\'s',
+                      style: TextStyle(
+                        color: _cream.withOpacity(0.5),
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -577,13 +1052,19 @@ class _UploadSheetState extends State<_UploadSheet> {
               hintText: 'Bijvoorbeeld: Hyrox event 18 juli',
               labelStyle: TextStyle(color: _cream.withOpacity(0.6)),
               hintStyle: TextStyle(color: _cream.withOpacity(0.3)),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
 
-          if (_selectedCategory == PhotoCategory.event && _existingAlbumTitles.isNotEmpty) ...[
+          if (_selectedCategory == PhotoCategory.event &&
+              _existingAlbumTitles.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text('Of voeg toe aan een bestaand album:', style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5))),
+            Text(
+              'Of voeg toe aan een bestaand album:',
+              style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5)),
+            ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
@@ -593,7 +1074,8 @@ class _UploadSheetState extends State<_UploadSheet> {
                   label: Text(title, style: const TextStyle(fontSize: 12)),
                   backgroundColor: Colors.white.withOpacity(0.08),
                   labelStyle: const TextStyle(color: _cream),
-                  onPressed: () => setState(() => _titleController.text = title),
+                  onPressed: () =>
+                      setState(() => _titleController.text = title),
                 );
               }).toList(),
             ),
@@ -601,7 +1083,10 @@ class _UploadSheetState extends State<_UploadSheet> {
 
           if (_errorMessage != null) ...[
             const SizedBox(height: 8),
-            Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.redAccent),
+            ),
           ],
 
           const SizedBox(height: 16),
@@ -620,13 +1105,20 @@ class _UploadSheetState extends State<_UploadSheet> {
                       const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(width: 10),
-                      Text('Bezig... ($_uploadedCount/${_selectedImages.length})'),
+                      Text(
+                        'Bezig... ($_uploadedCount/${_selectedImages.length})',
+                      ),
                     ],
                   )
-                : Text('Plaatsen${_selectedImages.length > 1 ? ' (${_selectedImages.length})' : ''}'),
+                : Text(
+                    'Plaatsen${_selectedImages.length > 1 ? ' (${_selectedImages.length})' : ''}',
+                  ),
           ),
         ],
       ),
