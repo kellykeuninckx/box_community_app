@@ -25,6 +25,8 @@ class AccountDeletionService {
     await _deleteWhereEquals('wod_scores', 'uid', uid);
     await _deleteWhereEquals('news_posts', 'authorUid', uid);
     await _deleteWhereEquals('agenda_events', 'authorUid', uid);
+    await _deleteWhereEquals('race_results', 'uid', uid);
+    await _deleteWhereEquals('challenge_results', 'uid', uid);
 
     // 2. Eigen lift-PR's (voorspelbare document-ID's: uid_lift)
     for (final lift in ['deadlift', 'benchPress', 'backSquat', 'shoulderPress']) {
