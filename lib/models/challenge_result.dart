@@ -11,6 +11,10 @@ class ChallengeResult {
   final String? note;
   final DateTime createdAt;
 
+  /// Null voor scores die zijn ingevuld vóór de man/vrouw-splitsing bestond —
+  /// die tonen we apart onder "Onbekend" in plaats van te gokken.
+  final String? gender;
+
   ChallengeResult({
     required this.id,
     required this.uid,
@@ -20,6 +24,7 @@ class ChallengeResult {
     required this.rawValue,
     this.note,
     required this.createdAt,
+    this.gender,
   });
 
   factory ChallengeResult.fromFirestore(DocumentSnapshot doc) {
@@ -36,6 +41,7 @@ class ChallengeResult {
       rawValue: (data['rawValue'] as num?)?.toDouble() ?? 0,
       note: data['note'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      gender: data['gender'],
     );
   }
 

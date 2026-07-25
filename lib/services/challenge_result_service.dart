@@ -45,6 +45,9 @@ class ChallengeResultService {
 
     final profileService = UserProfileService();
     final nickname = await profileService.nicknameFor(uid);
+    final profile = await profileService.fetchOnce(uid);
+    if (profile?.gender == null) return;
+
     final normalizedScore =
         scoreType == ChallengeScoreType.reps ||
             scoreType == ChallengeScoreType.holdTime
@@ -58,6 +61,7 @@ class ChallengeResultService {
       'scoreType': scoreType.name,
       'rawValue': rawValue,
       'normalizedScore': normalizedScore,
+      'gender': profile!.gender,
       'note': note,
       'createdAt': FieldValue.serverTimestamp(),
     });

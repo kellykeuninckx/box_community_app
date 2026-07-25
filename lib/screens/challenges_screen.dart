@@ -8,6 +8,19 @@ import '../services/challenge_result_service.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/logo_pattern_background.dart';
 
+/// Vertaalt een resultaat naar de sectie waaronder het getoond wordt.
+/// Null (bij scores van vóór de splitsing) valt in "Onbekend".
+String _genderSectionLabel(String? gender) {
+  switch (gender) {
+    case 'V':
+      return 'Vrouwen';
+    case 'M':
+      return 'Mannen';
+    default:
+      return 'Onbekend';
+  }
+}
+
 const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
 const _cardColor = Color(0xFF1B2E5C);
@@ -384,13 +397,28 @@ class _ChallengeDetail extends StatelessWidget {
               // keer dat iemands uid voorbij komt is meteen zijn beste poging.
               // Latere (mindere) pogingen van diezelfde persoon slaan we hier
               // over — ze blijven gewoon bewaard, alleen niet los getoond.
+              // Splitsen per geslacht gebeurt na de dedup, met behoud van
+              // volgorde (een oplopend gesorteerde lijst blijft oplopend
+              // gesorteerd na filteren).
               final seenUids = <String>{};
-              final results = <ChallengeResult>[
-                for (final result in allResults)
-                  if (seenUids.add(result.uid)) result,
-              ];
+              final women = <ChallengeResult>[];
+              final men = <ChallengeResult>[];
+              final unknown = <ChallengeResult>[];
+              for (final result in allResults) {
+                if (!seenUids.add(result.uid)) continue;
+                switch (result.gender) {
+                  case 'V':
+                    women.add(result);
+                    break;
+                  case 'M':
+                    men.add(result);
+                    break;
+                  default:
+                    unknown.add(result);
+                }
+              }
 
-              if (results.isEmpty) {
+              if (women.isEmpty && men.isEmpty && unknown.isEmpty) {
                 return Center(
                   child: Text(
                     'Nog niemand heeft een score ingevuld.\nWees de eerste!',
@@ -400,71 +428,16 @@ class _ChallengeDetail extends StatelessWidget {
                 );
               }
 
-              final currentUid = FirebaseAuth.instance.currentUser?.uid;
-
-              return ListView.builder(
+              return ListView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 8,
                 ),
-                itemCount: results.length,
-                itemBuilder: (context, index) {
-                  final result = results[index];
-                  final isMine = currentUid != null && currentUid == result.uid;
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    child: ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: _chipBg,
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: _cream,
-                          ),
-                        ),
-                      ),
-                      title: Text(
-                        result.nickname,
-                        style: const TextStyle(color: _cream),
-                      ),
-                      subtitle: result.note != null && result.note!.isNotEmpty
-                          ? Text(
-                              result.note!,
-                              style: TextStyle(
-                                color: _cream.withOpacity(0.5),
-                                fontSize: 12,
-                              ),
-                            )
-                          : null,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _formatValue(result),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: _cream,
-                            ),
-                          ),
-                          if (isMine && !readOnly)
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                size: 20,
-                                color: _cream.withOpacity(0.5),
-                              ),
-                              onPressed: () => _confirmDelete(context, result),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                children: [
+                  if (women.isNotEmpty) ..._genderSection(context, women),
+                  if (men.isNotEmpty) ..._genderSection(context, men),
+                  if (unknown.isNotEmpty) ..._genderSection(context, unknown),
+                ],
               );
             },
           ),
@@ -486,6 +459,85 @@ class _ChallengeDetail extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  List<Widget> _genderSection(
+    BuildContext context,
+    List<ChallengeResult> results,
+  ) {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          _genderSectionLabel(results.first.gender),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: _cream,
+          ),
+        ),
+      ),
+      ...results.asMap().entries.map((entry) {
+        final index = entry.key;
+        final result = entry.value;
+        final isMine = currentUid != null && currentUid == result.uid;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 6),
+          child: ListTile(
+            dense: true,
+            leading: CircleAvatar(
+              radius: 14,
+              backgroundColor: _chipBg,
+              child: Text(
+                '${index + 1}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _cream,
+                ),
+              ),
+            ),
+            title: Text(
+              result.nickname,
+              style: const TextStyle(color: _cream),
+            ),
+            subtitle: result.note != null && result.note!.isNotEmpty
+                ? Text(
+                    result.note!,
+                    style: TextStyle(
+                      color: _cream.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                  )
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatValue(result),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _cream,
+                  ),
+                ),
+                if (isMine && !readOnly)
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: _cream.withOpacity(0.5),
+                    ),
+                    onPressed: () => _confirmDelete(context, result),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }),
+    ];
   }
 
   void _confirmDelete(BuildContext context, ChallengeResult result) {
@@ -543,12 +595,32 @@ class _SubmitResultSheet extends StatefulWidget {
 }
 
 class _SubmitResultSheetState extends State<_SubmitResultSheet> {
+  final _profileService = UserProfileService();
   final _minutesController = TextEditingController();
   final _secondsController = TextEditingController();
   final _repsController = TextEditingController();
   final _noteController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isLoadingProfile = true;
+  bool _needsGender = false;
+  String _gender = 'M';
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await _profileService.currentUserProfile.first;
+    if (!mounted) return;
+
+    setState(() {
+      _needsGender = profile == null || profile.gender == null;
+      _isLoadingProfile = false;
+    });
+  }
 
   @override
   void dispose() {
@@ -582,6 +654,10 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
 
     setState(() => _isSubmitting = true);
 
+    if (_needsGender) {
+      await _profileService.setGender(_gender);
+    }
+
     final note = _noteController.text.trim();
     await widget.service.submitResult(
       challengeId: widget.challenge.id,
@@ -596,6 +672,13 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingProfile) {
+      return const SizedBox(
+        height: 160,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -679,6 +762,44 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
               ),
             ),
           ),
+
+          if (_needsGender) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Voor de man/vrouw-indeling hebben we dit eenmalig nodig:',
+              style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.6)),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('Man'),
+                    selected: _gender == 'M',
+                    selectedColor: _red,
+                    backgroundColor: _chipBg,
+                    labelStyle: TextStyle(
+                      color: _gender == 'M' ? Colors.white : _cream,
+                    ),
+                    onSelected: (_) => setState(() => _gender = 'M'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('Vrouw'),
+                    selected: _gender == 'V',
+                    selectedColor: _red,
+                    backgroundColor: _chipBg,
+                    labelStyle: TextStyle(
+                      color: _gender == 'V' ? Colors.white : _cream,
+                    ),
+                    onSelected: (_) => setState(() => _gender = 'V'),
+                  ),
+                ),
+              ],
+            ),
+          ],
 
           if (_errorMessage != null) ...[
             const SizedBox(height: 8),

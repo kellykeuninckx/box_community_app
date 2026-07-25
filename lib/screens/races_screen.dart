@@ -84,8 +84,17 @@ class _RacesBodyState extends State<RacesBody> {
                     );
                   }
 
-                  final women = results.where((r) => r.gender == 'V').toList();
-                  final men = results.where((r) => r.gender == 'M').toList();
+                  // Gemengde doubles horen niet bij de vrouwen- of
+                  // mannensectie — die krijgen hun eigen categorie, los van
+                  // wie van het koppel de score invulde.
+                  final mixed = results
+                      .where((r) => r.mode == RaceMode.mixedDoubles)
+                      .toList();
+                  final rest = results
+                      .where((r) => r.mode != RaceMode.mixedDoubles)
+                      .toList();
+                  final women = rest.where((r) => r.gender == 'V').toList();
+                  final men = rest.where((r) => r.gender == 'M').toList();
 
                   return ListView(
                     padding: const EdgeInsets.symmetric(
@@ -93,6 +102,7 @@ class _RacesBodyState extends State<RacesBody> {
                       vertical: 4,
                     ),
                     children: [
+                      if (mixed.isNotEmpty) ..._mixedSection(context, mixed),
                       if (women.isNotEmpty)
                         ..._genderSection(context, 'Vrouwen', women),
                       if (men.isNotEmpty)
@@ -169,57 +179,72 @@ class _RacesBodyState extends State<RacesBody> {
       final sorted = List<RaceResult>.from(modeResults)
         ..sort((a, b) => a.timeSeconds.compareTo(b.timeSeconds));
 
-      final currentUid = FirebaseAuth.instance.currentUser?.uid;
-
-      widgets.addAll(
-        sorted.map((result) {
-          final isMine = currentUid != null && currentUid == result.uid;
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 6),
-            child: ListTile(
-              dense: true,
-              title: Text(
-                result.nickname,
-                style: const TextStyle(color: _cream),
-              ),
-              subtitle: result.note != null && result.note!.isNotEmpty
-                  ? Text(
-                      result.note!,
-                      style: TextStyle(
-                        color: _cream.withOpacity(0.5),
-                        fontSize: 12,
-                      ),
-                    )
-                  : null,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    result.formattedTime,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: _cream,
-                    ),
-                  ),
-                  if (isMine)
-                    IconButton(
-                      icon: Icon(
-                        Icons.delete_outline,
-                        size: 20,
-                        color: _cream.withOpacity(0.5),
-                      ),
-                      onPressed: () => _confirmDelete(context, result),
-                    ),
-                ],
-              ),
-            ),
-          );
-        }),
-      );
+      widgets.addAll(sorted.map((result) => _resultCard(context, result)));
     }
 
     return widgets;
+  }
+
+  /// Eigen top-level categorie voor gemengde doubles-koppels — niet verder
+  /// op te delen naar gender, dat zou het hele punt van "gemengd" tenietdoen.
+  List<Widget> _mixedSection(BuildContext context, List<RaceResult> results) {
+    final sorted = List<RaceResult>.from(results)
+      ..sort((a, b) => a.timeSeconds.compareTo(b.timeSeconds));
+
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          'Mixed doubles',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: _cream,
+          ),
+        ),
+      ),
+      ...sorted.map((result) => _resultCard(context, result)),
+    ];
+  }
+
+  Widget _resultCard(BuildContext context, RaceResult result) {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final isMine = currentUid != null && currentUid == result.uid;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        dense: true,
+        title: Text(result.nickname, style: const TextStyle(color: _cream)),
+        subtitle: result.note != null && result.note!.isNotEmpty
+            ? Text(
+                result.note!,
+                style: TextStyle(color: _cream.withOpacity(0.5), fontSize: 12),
+              )
+            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              result.formattedTime,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: _cream,
+              ),
+            ),
+            if (isMine)
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: _cream.withOpacity(0.5),
+                ),
+                onPressed: () => _confirmDelete(context, result),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _confirmDelete(BuildContext context, RaceResult result) {
@@ -330,9 +355,9 @@ class _SubmitRaceSheetState extends State<_SubmitRaceSheet> {
     }
 
     final note = _noteController.text.trim();
-    if (_selectedMode == RaceMode.doubles && note.isEmpty) {
+    if (_selectedMode != RaceMode.solo && note.isEmpty) {
       setState(
-        () => _errorMessage = 'Vul bij Doubles in met wie je het gedaan hebt.',
+        () => _errorMessage = 'Vul in met wie je het gedaan hebt.',
       );
       return;
     }
@@ -459,10 +484,10 @@ class _SubmitRaceSheetState extends State<_SubmitRaceSheet> {
             controller: _noteController,
             style: const TextStyle(color: _cream),
             decoration: InputDecoration(
-              labelText: _selectedMode == RaceMode.doubles
+              labelText: _selectedMode != RaceMode.solo
                   ? 'Met wie (verplicht)'
                   : 'Opmerking (optioneel)',
-              hintText: _selectedMode == RaceMode.doubles
+              hintText: _selectedMode != RaceMode.solo
                   ? 'Bijvoorbeeld: met Jan'
                   : 'Bijvoorbeeld: Hyrox Utrecht',
               labelStyle: TextStyle(color: _cream.withOpacity(0.6)),

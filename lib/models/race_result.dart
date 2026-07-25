@@ -13,7 +13,7 @@ extension RaceTypeLabel on RaceType {
   }
 }
 
-enum RaceMode { solo, doubles }
+enum RaceMode { solo, doubles, mixedDoubles }
 
 extension RaceModeLabel on RaceMode {
   String get label {
@@ -22,6 +22,8 @@ extension RaceModeLabel on RaceMode {
         return 'Solo';
       case RaceMode.doubles:
         return 'Doubles';
+      case RaceMode.mixedDoubles:
+        return 'Mixed doubles';
     }
   }
 }
