@@ -152,6 +152,10 @@ class _SocialCardState extends State<_SocialCard> {
             ),
             const SizedBox(height: 6),
             Text(widget.post.text, style: const TextStyle(fontSize: 14, color: _cream)),
+            if (widget.post.isPoll) ...[
+              const SizedBox(height: 10),
+              _PollView(post: widget.post, service: widget.service),
+            ],
             const SizedBox(height: 10),
             Divider(height: 1, color: _cream.withOpacity(0.1)),
             const SizedBox(height: 8),
@@ -280,6 +284,79 @@ class _CommentRow extends StatelessWidget {
   }
 }
 
+class _PollView extends StatelessWidget {
+  final SocialPost post;
+  final SocialService service;
+
+  const _PollView({required this.post, required this.service});
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final myVote = uid != null ? post.voteFor(uid) : null;
+    final counts = post.voteCounts;
+    final total = post.totalVotes;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final option in post.pollOptions!)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: GestureDetector(
+              onTap: () => service.vote(post.id, option),
+              child: Container(
+                height: 38,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.06),
+                  border: myVote == option ? Border.all(color: _red, width: 1.5) : null,
+                ),
+                child: Stack(
+                  children: [
+                    FractionallySizedBox(
+                      widthFactor: total == 0 ? 0.0 : (counts[option] ?? 0) / total,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: _red.withOpacity(0.35),
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                option,
+                                style: const TextStyle(fontSize: 13, color: _cream),
+                              ),
+                            ),
+                            Text(
+                              '${counts[option] ?? 0}',
+                              style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.7)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        Text(
+          total == 0 ? 'Nog geen stemmen' : '$total stem${total == 1 ? '' : 'men'}',
+          style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5)),
+        ),
+      ],
+    );
+  }
+}
+
 class _NewPostSheet extends StatefulWidget {
   final SocialService service;
 
@@ -292,18 +369,47 @@ class _NewPostSheet extends StatefulWidget {
 class _NewPostSheetState extends State<_NewPostSheet> {
   final _textController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isPoll = false;
+  final List<TextEditingController> _optionControllers = [
+    TextEditingController(),
+    TextEditingController(),
+  ];
 
   @override
   void dispose() {
     _textController.dispose();
+    for (final controller in _optionControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
+  void _addOption() {
+    if (_optionControllers.length >= 6) return;
+    setState(() => _optionControllers.add(TextEditingController()));
+  }
+
+  void _removeOption(int index) {
+    setState(() => _optionControllers.removeAt(index).dispose());
+  }
+
   Future<void> _submit() async {
-    if (_textController.text.trim().isEmpty) return;
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+
+    List<String>? pollOptions;
+    if (_isPoll) {
+      pollOptions = _optionControllers.map((c) => c.text.trim()).where((o) => o.isNotEmpty).toList();
+      if (pollOptions.length < 2) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vul minstens 2 opties in voor de poll.')),
+        );
+        return;
+      }
+    }
 
     setState(() => _isSubmitting = true);
-    await widget.service.addPost(_textController.text.trim());
+    await widget.service.addPost(text, pollOptions: pollOptions);
 
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -330,14 +436,64 @@ class _NewPostSheetState extends State<_NewPostSheet> {
             maxLines: 3,
             style: const TextStyle(color: _cream),
             decoration: InputDecoration(
-              hintText: 'Bijvoorbeeld: wie traint er vrijdag om 18:00 mee?',
+              hintText: _isPoll ? 'Wat wil je vragen?' : 'Bijvoorbeeld: wie traint er vrijdag om 18:00 mee?',
               hintStyle: TextStyle(color: _cream.withOpacity(0.4)),
               filled: true,
               fillColor: Colors.white.withOpacity(0.06),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             ),
           ),
-          const SizedBox(height: 16),
+
+          CheckboxListTile(
+            value: _isPoll,
+            onChanged: (value) => setState(() => _isPoll = value ?? false),
+            title: const Text('Poll toevoegen', style: TextStyle(fontSize: 14, color: _cream)),
+            activeColor: _red,
+            checkColor: Colors.white,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            dense: true,
+          ),
+
+          if (_isPoll) ...[
+            for (int i = 0; i < _optionControllers.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _optionControllers[i],
+                        style: const TextStyle(color: _cream),
+                        decoration: InputDecoration(
+                          hintText: 'Optie ${i + 1}',
+                          hintStyle: TextStyle(color: _cream.withOpacity(0.4)),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.06),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ),
+                    if (_optionControllers.length > 2)
+                      IconButton(
+                        icon: Icon(Icons.close, size: 18, color: _cream.withOpacity(0.5)),
+                        onPressed: () => _removeOption(i),
+                      ),
+                  ],
+                ),
+              ),
+            if (_optionControllers.length < 6)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _addOption,
+                  child: Text('+ Optie toevoegen', style: TextStyle(color: _cream.withOpacity(0.8))),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+
+          const SizedBox(height: 8),
 
           ElevatedButton(
             onPressed: _isSubmitting ? null : _submit,
