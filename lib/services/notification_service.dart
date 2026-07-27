@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../main.dart';
 import '../screens/wall_of_fame_screen.dart';
+import '../screens/leaderboards_screen.dart';
+import '../screens/news_and_agenda_screen.dart';
 import 'user_profile_service.dart';
 
 class NotificationService {
@@ -79,12 +81,25 @@ class NotificationService {
   void _handleNotificationTap(RemoteMessage? message) {
     if (message == null) return;
 
-    final postId = message.data['postId'];
-    if (message.data['type'] == 'wall_of_fame_post' && postId != null) {
+    final type = message.data['type'];
+
+    if (type == 'wall_of_fame_post') {
+      final postId = message.data['postId'];
+      if (postId == null) return;
       navigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => WallOfFameScreen(initialPostId: postId),
         ),
+      );
+    } else if (type == 'challenge') {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => const LeaderboardsScreen(initialTab: LeaderboardTab.challenges),
+        ),
+      );
+    } else if (type == 'news_post') {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => const NewsAndAgendaScreen()),
       );
     }
   }

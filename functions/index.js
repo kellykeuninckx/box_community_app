@@ -51,7 +51,7 @@ async function sendToUser(uid, preferenceField, title, body, data) {
 /**
  * Stuurt een melding naar iedereen die de Nieuws & Agenda-voorkeur aan heeft staan.
  */
-async function notifyAllForNewsAndAgenda(title, body) {
+async function notifyAllForNewsAndAgenda(title, body, data) {
   const snapshot = await db
       .collection("user_profiles")
       .where("notifyNewsAndAgenda", "==", true)
@@ -72,6 +72,7 @@ async function notifyAllForNewsAndAgenda(title, body) {
     await messaging.sendEachForMulticast({
       tokens,
       notification: {title, body},
+      ...(data ? {data} : {}),
     });
     console.log(`[notifyAllForNewsAndAgenda] Verstuurd naar ${tokens.length} tokens: "${title}"`);
   } catch (error) {
@@ -159,8 +160,13 @@ exports.onKoffiehoekjeComment = onDocumentCreated(
 // 3. Nieuw nieuwsbericht
 exports.onNewsPostCreated = onDocumentCreated("news_posts/{postId}", async (event) => {
   const post = event.data.data();
+  const postId = event.params.postId;
   console.log(`[onNewsPostCreated] Nieuw bericht: "${post.title}"`);
-  await notifyAllForNewsAndAgenda("Nieuw bericht", post.title || "Er staat een nieuw bericht klaar.");
+  await notifyAllForNewsAndAgenda(
+      "Nieuw bericht",
+      post.title || "Er staat een nieuw bericht klaar.",
+      {type: "news_post", postId},
+  );
 });
 
 // 4. Nieuw agenda-event

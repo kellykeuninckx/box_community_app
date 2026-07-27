@@ -7,17 +7,19 @@ const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
 const _navy = Color(0xFF0F1C3F);
 
-enum _LeaderboardTab { lifts, races, challenges }
+enum LeaderboardTab { lifts, races, challenges }
 
 class LeaderboardsScreen extends StatefulWidget {
-  const LeaderboardsScreen({super.key});
+  final LeaderboardTab? initialTab;
+
+  const LeaderboardsScreen({super.key, this.initialTab});
 
   @override
   State<LeaderboardsScreen> createState() => _LeaderboardsScreenState();
 }
 
 class _LeaderboardsScreenState extends State<LeaderboardsScreen> {
-  _LeaderboardTab _selected = _LeaderboardTab.lifts;
+  late LeaderboardTab _selected = widget.initialTab ?? LeaderboardTab.lifts;
 
   @override
   Widget build(BuildContext context) {
@@ -33,18 +35,18 @@ class _LeaderboardsScreenState extends State<LeaderboardsScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: SegmentedButton<_LeaderboardTab>(
+              child: SegmentedButton<LeaderboardTab>(
                 segments: const [
                   ButtonSegment(
-                    value: _LeaderboardTab.lifts,
+                    value: LeaderboardTab.lifts,
                     label: Text('Lifts'),
                   ),
                   ButtonSegment(
-                    value: _LeaderboardTab.races,
+                    value: LeaderboardTab.races,
                     label: Text('Races'),
                   ),
                   ButtonSegment(
-                    value: _LeaderboardTab.challenges,
+                    value: LeaderboardTab.challenges,
                     label: Text('Challenges'),
                   ),
                 ],
@@ -72,9 +74,9 @@ class _LeaderboardsScreenState extends State<LeaderboardsScreen> {
             ),
             Expanded(
               child: switch (_selected) {
-                _LeaderboardTab.lifts => const LiftLeaderboardBody(),
-                _LeaderboardTab.races => const RacesBody(),
-                _LeaderboardTab.challenges => const ChallengesBody(),
+                LeaderboardTab.lifts => const LiftLeaderboardBody(),
+                LeaderboardTab.races => const RacesBody(),
+                LeaderboardTab.challenges => const ChallengesBody(),
               },
             ),
           ],
