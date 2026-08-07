@@ -43,8 +43,12 @@ class WodScore {
 
   String get formattedScore {
     if (timeInSeconds != null) {
-      final minutes = timeInSeconds! ~/ 60;
+      final hours = timeInSeconds! ~/ 3600;
+      final minutes = (timeInSeconds! % 3600) ~/ 60;
       final seconds = timeInSeconds! % 60;
+      if (hours > 0) {
+        return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+      }
       return '$minutes:${seconds.toString().padLeft(2, '0')}';
     }
     if (rounds != null) {

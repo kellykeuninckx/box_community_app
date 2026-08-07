@@ -776,6 +776,7 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
                   child: ChoiceChip(
                     label: const Text('Man'),
                     selected: _gender == 'M',
+                    showCheckmark: false,
                     selectedColor: _red,
                     backgroundColor: _chipBg,
                     labelStyle: TextStyle(
@@ -789,6 +790,7 @@ class _SubmitResultSheetState extends State<_SubmitResultSheet> {
                   child: ChoiceChip(
                     label: const Text('Vrouw'),
                     selected: _gender == 'V',
+                    showCheckmark: false,
                     selectedColor: _red,
                     backgroundColor: _chipBg,
                     labelStyle: TextStyle(
@@ -973,6 +975,7 @@ class _NewChallengeSheetState extends State<_NewChallengeSheet> {
               return ChoiceChip(
                 label: Text(type.label),
                 selected: isSelected,
+                showCheckmark: false,
                 selectedColor: _red,
                 backgroundColor: _chipBg,
                 labelStyle: TextStyle(

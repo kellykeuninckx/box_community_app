@@ -58,6 +58,7 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
                   return ChoiceChip(
                     label: Text(lift.label),
                     selected: isSelected,
+                    showCheckmark: false,
                     selectedColor: _red,
                     backgroundColor: _chipBg,
                     labelStyle: TextStyle(
@@ -383,6 +384,7 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
               return ChoiceChip(
                 label: Text(lift.label),
                 selected: isSelected,
+                showCheckmark: false,
                 selectedColor: _red,
                 backgroundColor: _chipBg,
                 labelStyle: TextStyle(
@@ -420,6 +422,7 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
                   child: ChoiceChip(
                     label: const Text('Man'),
                     selected: _gender == 'M',
+                    showCheckmark: false,
                     selectedColor: _red,
                     backgroundColor: _chipBg,
                     labelStyle: TextStyle(
@@ -433,6 +436,7 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
                   child: ChoiceChip(
                     label: const Text('Vrouw'),
                     selected: _gender == 'V',
+                    showCheckmark: false,
                     selectedColor: _red,
                     backgroundColor: _chipBg,
                     labelStyle: TextStyle(
