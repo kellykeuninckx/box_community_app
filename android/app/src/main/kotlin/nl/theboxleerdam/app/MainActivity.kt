@@ -1,4 +1,4 @@
-package com.example.gym_community_app
+package nl.theboxleerdam.app
 
 import io.flutter.embedding.android.FlutterActivity
 
