@@ -27,6 +27,9 @@
       }
     }
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": "news_admin",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]

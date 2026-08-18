@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // isAdmin/isCoach staan op user_profiles in Firestore en worden alleen
+    // handmatig in de Console gezet — zelfde bron als firestore.rules.
+    function myProfile() {
+      return firestore.get(/databases/(default)/documents/user_profiles/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myProfile().get('isAdmin', false) == true;
+    }
+
+    function isCoach() {
+      return isSignedIn() && myProfile().get('isCoach', false) == true;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // ---- photos/{uid}/{fileName} ---- (spiegelt de photo_posts-regel:
+    // alleen coaches uploaden, eigenaar of admin mag verwijderen, elk
+    // ingelogd lid mag bekijken)
+    match /photos/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow create: if isCoach()
+        && isOwner(uid)
+        && isImage()
+        && request.resource.size < 15 * 1024 * 1024;
+      allow update: if false;
+      allow delete: if isSignedIn() && (isOwner(uid) || isAdmin());
+    }
+
+    // Alles wat niet expliciet hierboven staat: standaard dicht.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
