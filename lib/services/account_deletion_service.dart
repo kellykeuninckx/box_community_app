@@ -56,12 +56,17 @@ class AccountDeletionService {
       }
     }
 
-    // 5. Eigen reacties op andermans Sociaal-berichten
+    // 5. Eigen reacties en pollstemmen op andermans Sociaal-berichten
     final allSocialPosts = await _firestore.collection('social_posts').get();
     for (final postDoc in allSocialPosts.docs) {
       final comments = await postDoc.reference.collection('comments').where('authorUid', isEqualTo: uid).get();
       for (final commentDoc in comments.docs) {
         await commentDoc.reference.delete();
+      }
+
+      final pollVotes = Map<String, dynamic>.from(postDoc.data()['pollVotesByUser'] ?? {});
+      if (pollVotes.containsKey(uid)) {
+        await postDoc.reference.update({'pollVotesByUser.$uid': FieldValue.delete()});
       }
     }
 
