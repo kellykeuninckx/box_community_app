@@ -50,6 +50,15 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      // ---- geschiedenis van PR's voor deze lift (elke inzending een eigen
+      // document, blijft bewaard ook als de huidige PR hierboven verandert) ----
+      match /history/{historyId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+        allow update: if false;
+        allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      }
     }
 
     // ---- race_results ---- (elke inzending een eigen document, geschiedenis blijft staan)

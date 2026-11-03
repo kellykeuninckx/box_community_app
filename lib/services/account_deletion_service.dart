@@ -28,9 +28,14 @@ class AccountDeletionService {
     await _deleteWhereEquals('race_results', 'uid', uid);
     await _deleteWhereEquals('challenge_results', 'uid', uid);
 
-    // 2. Eigen lift-PR's (voorspelbare document-ID's: uid_lift)
+    // 2. Eigen lift-PR's + hun geschiedenis (voorspelbare document-ID's: uid_lift)
     for (final lift in ['deadlift', 'benchPress', 'backSquat', 'shoulderPress']) {
-      await _firestore.collection('lift_prs').doc('${uid}_$lift').delete().catchError((_) {});
+      final docRef = _firestore.collection('lift_prs').doc('${uid}_$lift');
+      final history = await docRef.collection('history').get();
+      for (final historyDoc in history.docs) {
+        await historyDoc.reference.delete();
+      }
+      await docRef.delete().catchError((_) {});
     }
 
     // 3. Eigen geüploade foto's — zowel het bestand in Storage als het document

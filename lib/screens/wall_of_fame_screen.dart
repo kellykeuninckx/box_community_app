@@ -10,6 +10,22 @@ const _cream = Color(0xFFF0EDC8);
 const _red = Color(0xFF8B1E2B);
 const _navy = Color(0xFF0F1C3F);
 const _cardColor = Color(0xFF1B2E5C);
+const _milestoneGreen = Color(0xFF4C9A6A);
+
+/// Eén kleur per post-type zodat "Eerste keer", "Nieuw record" en "Mijlpaal"
+/// op het eerste gezicht van elkaar te onderscheiden zijn — testers gaven aan
+/// dat ze dat onderscheid misten toen alle pills dezelfde kleur hadden.
+const _typePillColors = <String, Color>{
+  'Eerste keer': _milestoneGreen,
+  'Nieuw record': _red,
+  'Mijlpaal': _cream,
+};
+
+const _typeTextColors = <String, Color>{
+  'Eerste keer': Colors.white,
+  'Nieuw record': Colors.white,
+  'Mijlpaal': _navy,
+};
 
 class WallOfFameScreen extends StatefulWidget {
   /// Wanneer gezet (bijv. vanuit een tik op een melding), scrollt het scherm
@@ -185,15 +201,15 @@ class _PostCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _cream,
+                      color: _typePillColors[post.type] ?? _cream,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       post.type,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _navy,
+                        color: _typeTextColors[post.type] ?? _navy,
                       ),
                     ),
                   ),

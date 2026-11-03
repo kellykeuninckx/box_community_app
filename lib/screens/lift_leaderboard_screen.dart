@@ -196,6 +196,7 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
             margin: const EdgeInsets.only(bottom: 6),
             child: ListTile(
               dense: true,
+              onTap: () => _showHistorySheet(context, pr),
               title: Text(pr.nickname, style: const TextStyle(color: _cream)),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -264,6 +265,100 @@ class _LiftLeaderboardBodyState extends State<LiftLeaderboardBody> {
       backgroundColor: const Color(0xFF16264B),
       builder: (_) =>
           _SubmitPrSheet(service: _service, initialLift: _selectedLift),
+    );
+  }
+
+  void _showHistorySheet(BuildContext context, LiftPr pr) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF16264B),
+      builder: (_) => _PrHistorySheet(service: _service, pr: pr),
+    );
+  }
+}
+
+class _PrHistorySheet extends StatelessWidget {
+  final LiftPrService service;
+  final LiftPr pr;
+
+  const _PrHistorySheet({required this.service, required this.pr});
+
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final liftLabel = LiftType.values
+        .firstWhere((lift) => lift.name == pr.lift, orElse: () => LiftType.deadlift)
+        .label;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            pr.nickname,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _cream),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$liftLabel — PR-geschiedenis',
+            style: TextStyle(fontSize: 12, color: _cream.withOpacity(0.5)),
+          ),
+          const SizedBox(height: 16),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: StreamBuilder<List<LiftPrHistoryEntry>>(
+              stream: service.historyFor(pr.uid, pr.lift),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final entries = snapshot.data ?? [];
+
+                if (entries.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      'Nog geen geschiedenis bekend.',
+                      style: TextStyle(color: _cream.withOpacity(0.6)),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: entries.length,
+                  separatorBuilder: (_, _) => Divider(color: _cream.withOpacity(0.1), height: 1),
+                  itemBuilder: (context, index) {
+                    final entry = entries[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_formatDate(entry.createdAt), style: TextStyle(color: _cream.withOpacity(0.7))),
+                          Text(
+                            '${entry.weightKg.toStringAsFixed(1)} kg',
+                            style: const TextStyle(fontWeight: FontWeight.w600, color: _cream),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -344,7 +439,11 @@ class _SubmitPrSheetState extends State<_SubmitPrSheet> {
     await widget.service.submitPr(lift: _selectedLift.name, weightKg: weight);
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('PR opgeslagen. Lekker bezig!')),
+    );
   }
 
   @override

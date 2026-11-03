@@ -154,58 +154,102 @@ class _NewsBody extends StatelessWidget {
         return ListView.builder(
           padding: const EdgeInsets.all(12),
           itemCount: posts.length,
-          itemBuilder: (context, index) => _NewsCard(post: posts[index], service: service, isAdmin: isAdmin),
+          itemBuilder: (context, index) => _NewsCard(
+            post: posts[index],
+            service: service,
+            isAdmin: isAdmin,
+            // Alleen het nieuwste bericht (bovenaan, index 0) staat standaard
+            // open — oudere berichten blijven ingeklapt om de lijst overzichtelijk
+            // te houden, precies zoals de testers aangaven.
+            initiallyExpanded: index == 0,
+          ),
         );
       },
     );
   }
 }
 
-class _NewsCard extends StatelessWidget {
+class _NewsCard extends StatefulWidget {
   final NewsPost post;
   final NewsService service;
   final bool isAdmin;
+  final bool initiallyExpanded;
 
-  const _NewsCard({required this.post, required this.service, required this.isAdmin});
+  const _NewsCard({
+    required this.post,
+    required this.service,
+    required this.isAdmin,
+    required this.initiallyExpanded,
+  });
+
+  @override
+  State<_NewsCard> createState() => _NewsCardState();
+}
+
+class _NewsCardState extends State<_NewsCard> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final post = widget.post;
     final isMine = FirebaseAuth.instance.currentUser?.uid == post.authorUid;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(post.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _cream)),
-                ),
-                if (isMine || isAdmin) ...[
-                  IconButton(
-                    icon: Icon(Icons.edit_outlined, size: 18, color: _cream.withOpacity(0.5)),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _showEditSheet(context),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _isExpanded = !_isExpanded),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(post.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _cream)),
                   ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _confirmDelete(context),
+                  if (_isExpanded && (isMine || widget.isAdmin)) ...[
+                    IconButton(
+                      icon: Icon(Icons.edit_outlined, size: 18, color: _cream.withOpacity(0.5)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _showEditSheet(context),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, size: 18, color: _cream.withOpacity(0.5)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _confirmDelete(context),
+                    ),
+                  ],
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: _cream.withOpacity(0.5),
                   ),
                 ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatDutchDate(post.createdAt, withYear: true),
+                style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5)),
+              ),
+              if (_isExpanded) ...[
+                const SizedBox(height: 8),
+                Text(post.body, style: const TextStyle(fontSize: 14, color: _cream)),
+                const SizedBox(height: 8),
+                Text('— ${post.authorNickname}', style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5))),
               ],
-            ),
-            const SizedBox(height: 6),
-            Text(post.body, style: const TextStyle(fontSize: 14, color: _cream)),
-            const SizedBox(height: 8),
-            Text('— ${post.authorNickname}', style: TextStyle(fontSize: 11, color: _cream.withOpacity(0.5))),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -222,7 +266,7 @@ class _NewsCard extends StatelessWidget {
           TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Annuleer', style: TextStyle(color: _cream.withOpacity(0.7)))),
           TextButton(
             onPressed: () {
-              service.deletePost(post.id);
+              widget.service.deletePost(widget.post.id);
               Navigator.of(context).pop();
             },
             child: const Text('Verwijder', style: TextStyle(color: _red)),
@@ -237,7 +281,7 @@ class _NewsCard extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: _cardColor,
-      builder: (_) => _NewNewsSheet(service: service, existingPost: post),
+      builder: (_) => _NewNewsSheet(service: widget.service, existingPost: widget.post),
     );
   }
 }
@@ -328,44 +372,118 @@ class _NewNewsSheetState extends State<_NewNewsSheet> {
 
 // MARK: - Agenda
 
-class _AgendaBody extends StatelessWidget {
+class _AgendaBody extends StatefulWidget {
   final AgendaService service;
   final bool isAdmin;
 
   const _AgendaBody({required this.service, required this.isAdmin});
 
   @override
+  State<_AgendaBody> createState() => _AgendaBodyState();
+}
+
+class _AgendaBodyState extends State<_AgendaBody> {
+  /// null = standaard "aankomend" (huidig + toekomstig, oplopend). Zodra een
+  /// specifieke maand gekozen is, tonen we enkel de events uit die maand.
+  DateTime? _selectedMonth;
+
+  void _goToPreviousMonth() {
+    setState(() {
+      final base = _selectedMonth ?? DateTime.now();
+      _selectedMonth = DateTime(base.year, base.month - 1);
+    });
+  }
+
+  void _goToNextMonth() {
+    setState(() {
+      final base = _selectedMonth ?? DateTime.now();
+      _selectedMonth = DateTime(base.year, base.month + 1);
+    });
+  }
+
+  String _formatMonthYear(DateTime date) => '${_months[date.month - 1]} ${date.year}';
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<AgendaEvent>>(
-      stream: service.upcomingEvents,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final selectedMonth = _selectedMonth;
 
-        if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Fout bij laden: ${snapshot.error}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
-            ),
-          );
-        }
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: _cream),
+                onPressed: _goToPreviousMonth,
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      selectedMonth == null ? 'Aankomend' : _formatMonthYear(selectedMonth),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _cream),
+                    ),
+                    if (selectedMonth != null)
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedMonth = null),
+                        child: Text(
+                          'terug naar aankomend',
+                          style: TextStyle(fontSize: 11, color: _red.withOpacity(0.9)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: _cream),
+                onPressed: _goToNextMonth,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<List<AgendaEvent>>(
+            stream: selectedMonth == null
+                ? widget.service.upcomingEvents
+                : widget.service.eventsForMonth(selectedMonth),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-        final events = snapshot.data ?? [];
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Fout bij laden: ${snapshot.error}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                  ),
+                );
+              }
 
-        if (events.isEmpty) {
-          return Center(
-            child: Text('Nog geen aankomende events.', style: TextStyle(color: _cream.withOpacity(0.6))),
-          );
-        }
+              final events = snapshot.data ?? [];
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: events.length,
-          itemBuilder: (context, index) => _AgendaCard(event: events[index], service: service, isAdmin: isAdmin),
-        );
-      },
+              if (events.isEmpty) {
+                return Center(
+                  child: Text(
+                    selectedMonth == null
+                        ? 'Nog geen aankomende events.'
+                        : 'Geen events in ${_formatMonthYear(selectedMonth)}.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _cream.withOpacity(0.6)),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: events.length,
+                itemBuilder: (context, index) => _AgendaCard(event: events[index], service: widget.service, isAdmin: widget.isAdmin),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

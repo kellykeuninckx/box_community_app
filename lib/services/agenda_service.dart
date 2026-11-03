@@ -17,6 +17,20 @@ class AgendaService {
         .map((snapshot) => snapshot.docs.map(AgendaEvent.fromFirestore).toList());
   }
 
+  /// Alle events binnen één specifieke kalendermaand (verleden of toekomst),
+  /// oplopend gesorteerd — gebruikt door de maandkiezer boven de agenda.
+  Stream<List<AgendaEvent>> eventsForMonth(DateTime month) {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final startOfNextMonth = DateTime(month.year, month.month + 1, 1);
+
+    return _collection
+        .where('eventDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+        .where('eventDate', isLessThan: Timestamp.fromDate(startOfNextMonth))
+        .orderBy('eventDate')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(AgendaEvent.fromFirestore).toList());
+  }
+
   Future<void> addEvent({
     required String title,
     required String description,

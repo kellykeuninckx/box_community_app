@@ -49,3 +49,20 @@ class LiftPr {
     );
   }
 }
+
+/// Eén regel uit de PR-geschiedenis van een persoon voor één lift — blijft
+/// bewaard ook als de huidige PR in [LiftPr] hierboven overschreven wordt.
+class LiftPrHistoryEntry {
+  final double weightKg;
+  final DateTime createdAt;
+
+  LiftPrHistoryEntry({required this.weightKg, required this.createdAt});
+
+  factory LiftPrHistoryEntry.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return LiftPrHistoryEntry(
+      weightKg: (data['weightKg'] as num?)?.toDouble() ?? 0,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+}

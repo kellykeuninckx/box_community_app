@@ -406,6 +406,14 @@ class _NewPostSheetState extends State<_NewPostSheet> {
         );
         return;
       }
+      // Stemmen worden opgeslagen op de tekst van de gekozen optie — twee
+      // identieke opties zouden dan onterecht allebei als "gekozen" tellen.
+      if (pollOptions.toSet().length != pollOptions.length) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Elke poll-optie moet verschillend zijn.')),
+        );
+        return;
+      }
     }
 
     setState(() => _isSubmitting = true);

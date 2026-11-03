@@ -16,6 +16,8 @@ class LiftPrService {
 
   /// Eén document per persoon per lift (id: "{uid}_{lift}") — een nieuwe PR
   /// vervangt automatisch de vorige, in plaats van dat er dubbele regels ontstaan.
+  /// De geschiedenis van eerdere PR's blijft wel bewaard in de "history"
+  /// subcollectie eronder — zie [historyFor].
   Future<void> submitPr({
     required String lift,
     required double weightKg,
@@ -29,9 +31,10 @@ class LiftPrService {
 
     if (profile == null || !profile.hasWeightClassInfo) return;
 
-    final docId = '${uid}_$lift';
+    final docRef = _collection.doc('${uid}_$lift');
+    final batch = FirebaseFirestore.instance.batch();
 
-    await _collection.doc(docId).set({
+    batch.set(docRef, {
       'uid': uid,
       'nickname': nickname,
       'lift': lift,
@@ -40,9 +43,28 @@ class LiftPrService {
       'bodyweightKg': profile.bodyweightKg,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    batch.set(docRef.collection('history').doc(), {
+      'uid': uid,
+      'weightKg': weightKg,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
   }
 
   Future<void> deletePr(String docId) async {
     await _collection.doc(docId).delete();
+  }
+
+  /// PR-geschiedenis voor één persoon + lift, nieuwste eerst. Blijft bewaard
+  /// ook als de huidige PR in [_collection] verwijderd of overschreven wordt.
+  Stream<List<LiftPrHistoryEntry>> historyFor(String uid, String lift) {
+    return _collection
+        .doc('${uid}_$lift')
+        .collection('history')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(LiftPrHistoryEntry.fromFirestore).toList());
   }
 }
